@@ -1,0 +1,14 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "type": "command",
+        "command": "python3 \"$HOME/.copilot/vscode-copilot-leader-agents/hooks/guard.py\"",
+        "linux": "python3 \"$HOME/.copilot/vscode-copilot-leader-agents/hooks/guard.py\"",
+        "osx": "python3 \"$HOME/.copilot/vscode-copilot-leader-agents/hooks/guard.py\"",
+        "windows": "powershell -NoProfile -ExecutionPolicy Bypass -File \"$env:USERPROFILE\\.copilot\\vscode-copilot-leader-agents\\hooks\\guard.ps1\"",
+        "timeout": 10
+      }
+    ]
+  }
+}
