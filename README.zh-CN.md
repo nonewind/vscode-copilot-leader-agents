@@ -81,7 +81,7 @@ Set-ExecutionPolicy -Scope Process Bypass
 2. 环境变量 `COPILOT_WORKER_MODEL`；
 3. 已有 VS Code 设置中的 DeepSeek V4 Flash 值；
 4. GCMP 扩展文件中的可识别值；
-5. 默认值：`gcmp.deepseek/gcmp.deepseek:::deepseek-v4-flash`。
+5. 默认值：`DeepSeek-V4-Flash (gcmp.deepseek)`。
 
 若运行时模型不可用，Leader 必须暂停并要求用户明确指定替代模型，不得回退到 Leader 模型继续执行。
 

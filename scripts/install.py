@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-CANONICAL_MODEL = "gcmp.deepseek/gcmp.deepseek:::deepseek-v4-flash"
+CANONICAL_MODEL = "DeepSeek-V4-Flash (gcmp.deepseek)"
 EXTENSION_ID = "vicanent.gcmp"
 
 

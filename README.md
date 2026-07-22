@@ -43,11 +43,11 @@ Set-ExecutionPolicy -Scope Process Bypass
 Optional explicit worker model:
 
 ```bash
-./install.sh --model "gcmp.deepseek/gcmp.deepseek:::deepseek-v4-flash"
+./install.sh --model "DeepSeek-V4-Flash (gcmp.deepseek)"
 ```
 
 ```powershell
-.\install.ps1 -Model "gcmp.deepseek/gcmp.deepseek:::deepseek-v4-flash"
+.\install.ps1 -Model "DeepSeek-V4-Flash (gcmp.deepseek)"
 ```
 
 Existing files with the same names and every modified VS Code `settings.json` are backed up before changes are applied.
