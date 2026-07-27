@@ -12,11 +12,11 @@ Use this skill when coordinating a development task through the Leader custom ag
 1. Discover facts with Analyzer only.
 2. Present the current plan and stop.
 3. Accept only the exact phrase `批准执行`.
-4. Delegate edits only to Implementer.
+4. Delegate edits to Implementer by default. Any direct Leader write requires an explicit current-task user instruction and an approved exact scope.
 5. Require Tester PASS.
 6. Require Reviewer PASS.
 7. Rework autonomously inside approved scope.
-8. Stop and reauthorize on scope or risk expansion.
+8. Stop and reauthorize on scope or risk expansion. Deletion already listed as exact file paths in the latest approved plan is not scope expansion.
 9. Stop and request an explicit model name when the configured worker model is unavailable.
 
 Never treat ordinary agreement, follow-up discussion, or a previous task's approval as authorization.

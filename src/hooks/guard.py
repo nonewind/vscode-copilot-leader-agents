@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import re
+import shlex
 import sys
 from typing import Any
 
@@ -31,6 +32,56 @@ def matches(patterns: list[str], text: str) -> str | None:
     return None
 
 
+def terminal_delete_decision(command: str) -> str | None:
+    if not matches([
+        r"\b(?:rm|unlink|del|erase|Remove-Item)\b",
+        r"\bfind\b[^\n]*\s-delete\b",
+        r"\bgit\s+rm\b",
+    ], command):
+        return None
+
+    if matches([r"(?:&&|[;&|><])"], command):
+        return "deny"
+
+    if matches([
+        r"\bfind\b[^\n]*\s-delete\b",
+        r"\bgit\s+rm\b",
+        r"\b(?:rmdir|rd)\b",
+    ], command):
+        return "deny"
+
+    try:
+        tokens = shlex.split(command)
+    except ValueError:
+        return "deny"
+    if not tokens:
+        return None
+
+    program = tokens[0].lower()
+    args = tokens[1:]
+    target: str | None = None
+
+    if program == "rm":
+        targets: list[str] = []
+        for arg in args:
+            if arg in {"--", "-f", "--force"}:
+                continue
+            if arg.startswith("-"):
+                return "deny"
+            targets.append(arg)
+        if len(targets) == 1:
+            target = targets[0]
+    elif program == "unlink":
+        targets = [arg for arg in args if arg != "--"]
+        if len(targets) == 1 and not targets[0].startswith("-"):
+            target = targets[0]
+
+    shell_expansion_chars = set("*?$`[]{}~!^%&|<>()#")
+    if target and not target.startswith("=") and not any(char in target for char in shell_expansion_chars):
+        return "ask"
+    return "deny"
+
+
 def main() -> int:
     try:
         data = json.load(sys.stdin)
@@ -43,18 +94,13 @@ def main() -> int:
     text = flatten(tool_input)
     combined = f"{tool_name} {text}"
 
-    delete_tools = ["deletefile", "delete_file", "removefile", "remove_file"]
-    if any(name in tool_name for name in delete_tools):
-        emit("deny", "File deletion is prohibited by the Leader security policy.")
-        return 0
-
     hard_deny = [
         r"\bgit\s+(commit|push|pull|merge|rebase|reset|revert|cherry-pick|switch|checkout|clean|stash|tag)\b",
         r"\bgit\s+branch\s+(-d|-D|-m|-M|--delete|--move)\b",
-        r"\brm\s+(-[^\n]*r[^\n]*f|-rf|-fr)\b",
-        r"\brmdir\s+(/s|--ignore-fail-on-non-empty)\b",
-        r"\bdel\s+/[fsq]",
-        r"\bRemove-Item\b[^\n]*(?:-Recurse|-Force)",
+        r"\brm\b[^\n]*(?:\s-[^\s]*[rR][^\s]*|\s--recursive)\b",
+        r"\b(?:rmdir|rd)\b",
+        r"\bdel\b[^\n]*\s/[^\s]*[sS][^\s]*",
+        r"\bRemove-Item\b[^\n]*-Recurse\b",
         r"\b(drop|truncate)\s+(table|database|schema)\b",
         r"\bdelete\s+from\b",
         r"\bupdate\s+[^\n]+\s+set\b",
@@ -64,6 +110,16 @@ def main() -> int:
     hit = matches(hard_deny, combined)
     if hit:
         emit("deny", "Destructive or Git-writing operation blocked by the Leader security policy.")
+        return 0
+
+    delete_tools = ["deletefile", "delete_file", "removefile", "remove_file"]
+    command = str(tool_input.get("command", "")) if isinstance(tool_input, dict) else ""
+    delete_decision = terminal_delete_decision(command)
+    if delete_decision == "deny":
+        emit("deny", "Only a standalone, non-recursive deletion command with one literal target is allowed.")
+        return 0
+    if any(name in tool_name for name in delete_tools) or delete_decision == "ask":
+        emit("ask", "Exact single-file deletion requires explicit user confirmation; directory and recursive deletion are prohibited.")
         return 0
 
     approval_required = [

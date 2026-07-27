@@ -4,7 +4,7 @@ description: Leader 专属只读审查子代理。独立审查差异、正确性
 user-invocable: false
 disable-model-invocation: true
 model: "{{WORKER_MODEL}}"
-tools: ['read', 'search', 'runCommands']
+tools: ['read', 'search', 'execute']
 agents: []
 target: vscode
 ---

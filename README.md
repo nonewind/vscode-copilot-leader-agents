@@ -15,7 +15,7 @@ User -> Leader (current model)
           +-> Reviewer     (DeepSeek V4 Flash, read-only + commands)
 ```
 
-The Leader normally uses only isolated subagents. It can perform read-only verification itself only when worker reports conflict or direct verification is necessary. It never edits files.
+The Leader has the full configured VS Code tool set, but tool availability is not operation authorization. It normally uses isolated subagents and performs direct writes only when the user explicitly assigns that work to Leader within an approved exact scope.
 
 ## Requirements
 
@@ -61,14 +61,14 @@ After installation, reload VS Code and select **Leader** from the agent picker. 
 2. Leader may invoke only the read-only Analyzer before authorization.
 3. Leader presents a factual plan.
 4. The exact user reply `批准执行` authorizes the current plan and its declared scope.
-5. Implementer edits only the authorized scope.
+5. Implementer edits only the authorized scope, may run implementation self-verification, and may delete only exact file paths listed in the approved plan.
 6. Tester must pass before Reviewer runs.
 7. Reviewer must pass before Leader reports completion.
 8. Any expansion of goal, file scope, risk, dependency, database, environment, or external-service impact stops execution and requires a new plan plus a new `批准执行`.
 
 ## Native limitations
 
-This project uses only VS Code native custom agents, subagents, skills, settings, and hooks. Native VS Code can strongly enforce tool separation and block known dangerous operations. It cannot cryptographically bind a chat approval phrase to an exact future edit set. Plan authorization and path scope are therefore protocol-enforced, while destructive operations are hook-enforced. See [docs/NATIVE_LIMITATIONS.md](docs/NATIVE_LIMITATIONS.md).
+This project uses only VS Code native custom agents, subagents, skills, settings, and hooks. Native VS Code can block known dangerous operations and require confirmation for exact single-file deletion. It cannot cryptographically bind a chat approval phrase to an exact future edit set. Plan authorization and path scope are therefore protocol-enforced. See [docs/NATIVE_LIMITATIONS.md](docs/NATIVE_LIMITATIONS.md).
 
 ## Validate
 

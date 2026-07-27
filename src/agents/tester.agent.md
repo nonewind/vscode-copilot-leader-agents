@@ -4,7 +4,7 @@ description: Leader 专属只读测试子代理。运行测试、构建和静态
 user-invocable: false
 disable-model-invocation: true
 model: "{{WORKER_MODEL}}"
-tools: ['read', 'search', 'runCommands']
+tools: ['read', 'search', 'execute']
 agents: []
 target: vscode
 ---

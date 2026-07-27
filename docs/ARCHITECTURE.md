@@ -4,13 +4,13 @@
 
 | Component | Model | User visible | Tools | Responsibility |
 |---|---|---:|---|---|
-| Leader | Current chat model | Yes | `agent`, `read`, `search`, `runCommands` | Plan, authorize, delegate, reconcile, accept |
+| Leader | Current chat model | Yes | Full configured VS Code, execution, edit, search, browser, and extension tool sets | Plan, authorize, delegate, reconcile, accept; direct writes require explicit user assignment |
 | Leader Analyzer | Worker model | No | `read`, `search` | Pre-authorization facts and implementation analysis |
-| Leader Implementer | Worker model | No | `read`, `search`, `edit` | Authorized code changes only |
-| Leader Tester | Worker model | No | `read`, `search`, `runCommands` | Tests, builds, static analysis |
-| Leader Reviewer | Worker model | No | `read`, `search`, `runCommands` | Diff, correctness, scope and risk review |
+| Leader Implementer | Worker model | No | `vscode`, `execute`, `read`, `search`, `edit` | Authorized code changes, exact-path file deletion, and self-verification |
+| Leader Tester | Worker model | No | `read`, `search`, `execute` | Tests, builds, static analysis |
+| Leader Reviewer | Worker model | No | `read`, `search`, `execute` | Diff, correctness, scope and risk review |
 
-Leader has no edit tool. Workers have no `agent` tool. Nested subagents are disabled globally.
+Tool availability does not grant semantic authorization. Leader direct writes are protocol-limited to explicit user assignment and an approved exact scope. Implementer deletion is protocol-limited to exact file paths in the latest approved plan; the Hook requires confirmation for single-file deletion and denies directory or recursive deletion. Workers have no `agent` tool, and nested subagents are disabled globally.
 
 ## State machine
 

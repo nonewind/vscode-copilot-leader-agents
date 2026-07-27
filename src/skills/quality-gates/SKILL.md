@@ -12,4 +12,6 @@ A task is complete only when:
 - Reviewer reports PASS with no scope violation;
 - Leader resolves any report conflict.
 
+Implementer self-verification is useful implementation evidence, but it never replaces the independent Tester gate.
+
 A failed test or review returns to Implementer within the approved scope. Reauthorization is mandatory when the fix requires new files, new directories, dependency changes, configuration changes, database changes, external services, or higher risk.

@@ -11,6 +11,23 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 WORKERS = ["analyzer", "implementer", "tester", "reviewer"]
+LEADER_TOOLS = {
+    "vscode",
+    "execute",
+    "read",
+    "agent",
+    "ms-azuretools.vscode-containers",
+    "ms-python.python",
+    "ms-vscode.vscode-websearchforcopilot",
+    "vicanent.gcmp",
+    "edit",
+    "search",
+    "web",
+    "browser",
+    "github/*",
+    "pylance-mcp-server/*",
+    "todo",
+}
 
 
 def frontmatter(path: Path) -> dict[str, object]:
@@ -81,8 +98,8 @@ def validate(installed: bool) -> list[str]:
             continue
         tools = set(fm.get("tools", []))
         if name == "leader":
-            if "edit" in tools:
-                errors.append("Leader must not have edit tool")
+            if tools != LEADER_TOOLS:
+                errors.append("Leader tool set is incorrect")
             expected = {"Leader Analyzer", "Leader Implementer", "Leader Tester", "Leader Reviewer"}
             if set(fm.get("agents", [])) != expected:
                 errors.append("Leader subagent allowlist is incorrect")
@@ -93,8 +110,10 @@ def validate(installed: bool) -> list[str]:
                 errors.append(f"{name} must be hidden")
             if "agent" in tools:
                 errors.append(f"{name} must not have agent tool")
-            if name == "implementer" and "edit" not in tools:
-                errors.append("Implementer must have edit tool")
+            if name == "implementer" and not {"vscode", "execute", "edit"}.issubset(tools):
+                errors.append("Implementer must have vscode, execute, and edit tools")
+            if name in {"tester", "reviewer"} and "execute" not in tools:
+                errors.append(f"{name} must have execute tool")
             if name != "implementer" and "edit" in tools:
                 errors.append(f"{name} must be read-only")
             text = path.read_text(encoding="utf-8")
