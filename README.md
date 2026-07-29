@@ -1,6 +1,6 @@
 # VS Code Copilot Leader Agents
 
-A native VS Code Copilot Chat coordinator/worker setup designed to minimize model cost while keeping planning and acceptance under a high-quality Leader model.
+A native VS Code Copilot Chat setup that lets a high-quality Leader decide when to work directly and when low-cost workers add enough value to justify delegation.
 
 中文文档见 [README.zh-CN.md](README.zh-CN.md)。
 
@@ -15,7 +15,7 @@ User -> Leader (current model)
           +-> Reviewer     (DeepSeek V4 Flash, read-only + commands)
 ```
 
-The Leader has the full configured VS Code tool set, but tool availability is not operation authorization. It normally uses isolated subagents and performs direct writes only when the user explicitly assigns that work to Leader within an approved exact scope.
+The Leader has the full configured VS Code tool set and acts as the task's risk and quality authority. It may investigate, implement, and verify low-risk work directly; workers are optional, isolated support for tasks where delegation adds value. Tool availability never bypasses the high-risk safety boundary.
 
 ## Requirements
 
@@ -55,20 +55,19 @@ The installer normalizes modified JSONC settings to standard JSON; comments are 
 
 After installation, reload VS Code and select **Leader** from the agent picker. VS Code Stable does not currently expose a supported setting for automatically making a custom agent the default, so this final selection is manual.
 
-## Approval workflow
+## Risk-based workflow
 
-1. Start every development request in `Leader`.
-2. Leader may invoke only the read-only Analyzer before authorization.
-3. Leader presents a factual plan.
-4. The exact user reply `批准执行` authorizes the current plan and its declared scope.
-5. Implementer edits only the authorized scope, may run implementation self-verification, and may delete only exact file paths listed in the approved plan.
-6. Tester must pass before Reviewer runs.
-7. Reviewer must pass before Leader reports completion.
-8. Any expansion of goal, file scope, risk, dependency, database, environment, or external-service impact stops execution and requires a new plan plus a new `批准执行`.
+Leader selects the smallest workflow that is sufficient for the task:
+
+- **Low risk:** direct investigation, implementation, and proportionate self-verification for explicit, local, reversible work.
+- **Routine:** direct work or targeted worker delegation, with verification chosen for the actual uncertainty and impact.
+- **High risk:** an explicit plan and user confirmation before changes involving deletion, dependencies or lockfiles, configuration or secrets, migrations or data writes, external services or deployment, permissions or security boundaries, unclear scope, or difficult rollback. Independent Tester and Reviewer PASS are mandatory after implementation.
+
+`批准执行` is a recommended short form for high-risk confirmation; clear natural-language confirmation is also valid. A high-risk confirmation does not authorize later material expansion.
 
 ## Native limitations
 
-This project uses only VS Code native custom agents, subagents, skills, settings, and hooks. Native VS Code can block known dangerous operations and require confirmation for exact single-file deletion. It cannot cryptographically bind a chat approval phrase to an exact future edit set. Plan authorization and path scope are therefore protocol-enforced. See [docs/NATIVE_LIMITATIONS.md](docs/NATIVE_LIMITATIONS.md).
+This project uses only VS Code native custom agents, subagents, skills, settings, and hooks. Native VS Code can block known dangerous operations, require confirmation for exact single-file deletion, and require confirmation for GitHub writes. It cannot cryptographically bind a chat confirmation to an exact future edit set. Risk classification and high-risk scope control are therefore protocol-enforced. See [docs/NATIVE_LIMITATIONS.md](docs/NATIVE_LIMITATIONS.md).
 
 ## Validate
 

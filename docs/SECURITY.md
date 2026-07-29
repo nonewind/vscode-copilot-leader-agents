@@ -10,7 +10,8 @@ The global PreToolUse hook blocks or requests confirmation for:
 - Database migrations
 - Deployment and infrastructure mutation commands
 - Sensitive configuration and credential file edits
+- GitHub write and unknown GitHub actions; named read-only GitHub actions remain available
 
-The guard is defense in depth. Tool lists define available mechanics, while the latest approved plan and exact-path scope remain protocol-enforced. The Hook cannot determine which plan the user most recently approved.
+The guard is defense in depth. Tool lists define available mechanics, while Leader risk classification and high-risk scope remain protocol-enforced. The Hook cannot determine what the user most recently confirmed.
 
 No API keys, tokens, endpoints, or GCMP credentials are read, copied, logged, or stored by this project.

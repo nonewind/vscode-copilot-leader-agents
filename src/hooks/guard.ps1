@@ -11,6 +11,22 @@ function Emit-Decision([string]$decision, [string]$reason) {
     $obj | ConvertTo-Json -Depth 5 -Compress
 }
 
+if ($toolName -match '(?i)(^|[./:_-])github([./:_-]|$)') {
+    $action = ''
+    if ($toolName -match '(?i)github[./:_-]+(.+)$') {
+        $action = $Matches[1].ToLowerInvariant()
+    }
+    $readOnlyPrefixes = @('get', 'list', 'search', 'read', 'view', 'fetch', 'compare', 'diff', 'status', 'download')
+    $isReadOnly = $false
+    foreach ($prefix in $readOnlyPrefixes) {
+        if ($action.StartsWith($prefix)) { $isReadOnly = $true; break }
+    }
+    if (-not $isReadOnly) {
+        Emit-Decision "ask" "GitHub write or unknown action requires explicit user confirmation."
+        exit 0
+    }
+}
+
 $hardDeny = @(
     '\bgit\s+(commit|push|pull|merge|rebase|reset|revert|cherry-pick|switch|checkout|clean|stash|tag)\b',
     '\bgit\s+branch\s+(-d|-D|-m|-M|--delete|--move)\b',

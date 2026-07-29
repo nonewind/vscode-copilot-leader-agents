@@ -82,6 +82,18 @@ def terminal_delete_decision(command: str) -> str | None:
     return "deny"
 
 
+def github_decision(tool_name: str) -> str | None:
+    """Allow named read-only GitHub tools and require confirmation for every other GitHub action."""
+    if not re.search(r"(?:^|[./:_-])github(?:[./:_-]|$)", tool_name, flags=re.IGNORECASE):
+        return None
+
+    read_only = (
+        "get", "list", "search", "read", "view", "fetch", "compare", "diff", "status", "download",
+    )
+    action = re.split(r"(?i)github[./:_-]+", tool_name, maxsplit=1)[-1].lower()
+    return None if any(action.startswith(prefix) for prefix in read_only) else "ask"
+
+
 def main() -> int:
     try:
         data = json.load(sys.stdin)
@@ -93,6 +105,10 @@ def main() -> int:
     tool_input = data.get("tool_input", {})
     text = flatten(tool_input)
     combined = f"{tool_name} {text}"
+
+    if github_decision(tool_name) == "ask":
+        emit("ask", "GitHub write or unknown action requires explicit user confirmation.")
+        return 0
 
     hard_deny = [
         r"\bgit\s+(commit|push|pull|merge|rebase|reset|revert|cherry-pick|switch|checkout|clean|stash|tag)\b",

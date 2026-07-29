@@ -42,6 +42,22 @@ class RepositoryTests(unittest.TestCase):
         })
         self.assertEqual(output["hookSpecificOutput"]["permissionDecision"], "ask")
 
+    def test_guard_asks_for_github_write_or_unknown_action(self):
+        for tool_name in ["github/push", "github/create_pull_request", "github/unknown_operation"]:
+            with self.subTest(tool_name=tool_name):
+                output = self.run_guard({
+                    "tool_name": tool_name,
+                    "tool_input": {"repository": "owner/repository"},
+                })
+                self.assertEqual(output["hookSpecificOutput"]["permissionDecision"], "ask")
+
+    def test_guard_allows_named_read_only_github_action(self):
+        output = self.run_guard({
+            "tool_name": "github/get_pull_request",
+            "tool_input": {"repository": "owner/repository", "number": 1},
+        })
+        self.assertTrue(output["continue"])
+
     def test_guard_asks_for_single_file_deletion(self):
         commands = [
             "rm -- old-report.vue",
@@ -127,7 +143,7 @@ class RepositoryTests(unittest.TestCase):
 
     def test_powershell_guard_has_matching_delete_policy(self):
         text = (ROOT / "src/hooks/guard.ps1").read_text(encoding="utf-8")
-        for token in ["permissionDecision", "remove-item", "rmdir", "unlink", "%!^&", "`$\\[\\]{}~#=", '"ask"', '"deny"']:
+        for token in ["permissionDecision", "remove-item", "rmdir", "unlink", "%!^&", "`$\\[\\]{}~#=", "github", "readonlyprefixes", '"ask"', '"deny"']:
             self.assertIn(token.lower(), text.lower())
 
 

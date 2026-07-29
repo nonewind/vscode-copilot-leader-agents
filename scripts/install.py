@@ -16,6 +16,13 @@ from typing import Any
 REPO_ROOT = Path(__file__).resolve().parents[1]
 CANONICAL_MODEL = "DeepSeek-V4-Flash (gcmp.deepseek)"
 EXTENSION_ID = "vicanent.gcmp"
+LEGACY_BUILTIN_MODEL_KEYS = (
+    "chat.exploreAgent.defaultModel",
+    "chat.planAgent.defaultModel",
+    "github.copilot.chat.askAgent.model",
+    "github.copilot.chat.implementAgent.model",
+    "github.copilot.chat.exploreAgent.model",
+)
 
 
 def parse_args() -> argparse.Namespace:
@@ -201,20 +208,28 @@ def copy_tree(source: Path, target: Path, backup_root: Path, dry_run: bool) -> N
         shutil.copytree(source, target)
 
 
-def merge_profile_settings(path: Path, model: str, backup_root: Path, dry_run: bool) -> None:
+def merge_profile_settings(
+    path: Path,
+    model: str,
+    legacy_worker_model: str | None,
+    backup_root: Path,
+    dry_run: bool,
+) -> None:
     backup_item(path, backup_root, dry_run)
     settings = read_settings(path)
+    # 仅移除本工具曾写入且仍等于当前或上次 worker 模型的覆盖项，避免继续劫持用户主动选择的内置 Agent 模型。
+    managed_models = {model}
+    if legacy_worker_model:
+        managed_models.add(legacy_worker_model)
+    for key in LEGACY_BUILTIN_MODEL_KEYS:
+        if settings.get(key) in managed_models:
+            settings.pop(key)
     settings.update({
         "chat.agent.enabled": True,
         "chat.subagents.allowInvocationsFromSubagents": False,
         "chat.useCustomAgentHooks": True,
         "chat.utilityModel": model,
         "chat.utilitySmallModel": model,
-        "chat.exploreAgent.defaultModel": model,
-        "chat.planAgent.defaultModel": model,
-        "github.copilot.chat.askAgent.model": model,
-        "github.copilot.chat.implementAgent.model": model,
-        "github.copilot.chat.exploreAgent.model": model,
     })
     print(f"Update profile settings: {path}")
     if not dry_run:
@@ -242,6 +257,15 @@ def main() -> int:
     skill_dir = copilot / "skills"
     hook_dir = copilot / "hooks"
     runtime_root = copilot / "vscode-copilot-leader-agents"
+    previous_state_path = runtime_root / "install-state.json"
+    legacy_worker_model: str | None = None
+    if previous_state_path.exists():
+        try:
+            previous_state = json.loads(previous_state_path.read_text(encoding="utf-8"))
+            value = previous_state.get("worker_model")
+            legacy_worker_model = value if isinstance(value, str) else None
+        except (OSError, json.JSONDecodeError):
+            pass
     timestamp = dt.datetime.now().strftime("%Y%m%d-%H%M%S")
     backup_root = runtime_root / "backups" / timestamp
 
@@ -277,7 +301,7 @@ def main() -> int:
         shutil.copy2(REPO_ROOT / "src/hooks/vscode-copilot-leader-guard.json", hook_target)
 
     for settings_file in settings_files:
-        merge_profile_settings(settings_file, model, backup_root, args.dry_run)
+        merge_profile_settings(settings_file, model, legacy_worker_model, backup_root, args.dry_run)
 
     state = {
         "version": (REPO_ROOT / "VERSION").read_text(encoding="utf-8").strip(),

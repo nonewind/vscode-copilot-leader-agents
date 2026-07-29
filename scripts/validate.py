@@ -51,9 +51,14 @@ def frontmatter(path: Path) -> dict[str, object]:
     return result
 
 
-def installed_paths() -> tuple[Path, Path, Path]:
+def installed_paths() -> tuple[Path, Path, Path, Path]:
     base = Path.home() / ".copilot"
-    return base / "agents", base / "skills", base / "hooks"
+    return (
+        base / "agents",
+        base / "skills",
+        base / "hooks",
+        base / "vscode-copilot-leader-agents",
+    )
 
 
 def settings_files() -> list[Path]:
@@ -73,8 +78,18 @@ def settings_files() -> list[Path]:
 
 def validate(installed: bool) -> list[str]:
     errors: list[str] = []
+    worker_model: str | None = None
     if installed:
-        agents, skills, hooks = installed_paths()
+        agents, skills, hooks, runtime = installed_paths()
+        state_path = runtime / "install-state.json"
+        try:
+            state = json.loads(state_path.read_text(encoding="utf-8"))
+            value = state.get("worker_model")
+            if not isinstance(value, str) or not value:
+                raise ValueError("worker_model is missing")
+            worker_model = value
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            errors.append(f"Invalid install state {state_path}: {exc}")
         agent_files = {
             "leader": agents / "leader.agent.md",
             "analyzer": agents / "leader-analyzer.agent.md",
@@ -120,10 +135,20 @@ def validate(installed: bool) -> list[str]:
             if installed and "{{WORKER_MODEL}}" in text:
                 errors.append(f"Unrendered model placeholder: {path}")
 
+        if installed and worker_model:
+            source = REPO_ROOT / "src/agents" / f"{name}.agent.md"
+            expected = source.read_text(encoding="utf-8").replace("{{WORKER_MODEL}}", worker_model)
+            if path.read_text(encoding="utf-8") != expected:
+                errors.append(f"Installed agent differs from template: {path}")
+
     for skill_name in ["leader-orchestration", "structured-handoff", "cost-control", "scope-arbitration", "quality-gates"]:
         path = skills / skill_name / "SKILL.md"
         if not path.exists():
             errors.append(f"Missing skill: {path}")
+        elif installed:
+            source = REPO_ROOT / "src/skills" / skill_name / "SKILL.md"
+            if path.read_text(encoding="utf-8") != source.read_text(encoding="utf-8"):
+                errors.append(f"Installed skill differs from template: {path}")
 
     hook_file = hooks / "vscode-copilot-leader-guard.json"
     if not hook_file.exists():
@@ -133,6 +158,17 @@ def validate(installed: bool) -> list[str]:
             json.loads(hook_file.read_text(encoding="utf-8"))
         except Exception as exc:
             errors.append(f"Invalid hook JSON: {exc}")
+        if installed and hook_file.read_text(encoding="utf-8") != (REPO_ROOT / "src/hooks/vscode-copilot-leader-guard.json").read_text(encoding="utf-8"):
+            errors.append(f"Installed hook config differs from template: {hook_file}")
+
+    if installed:
+        for name in ["guard.py", "guard.ps1"]:
+            path = runtime / "hooks" / name
+            source = REPO_ROOT / "src/hooks" / name
+            if not path.exists():
+                errors.append(f"Missing installed hook runtime: {path}")
+            elif path.read_text(encoding="utf-8") != source.read_text(encoding="utf-8"):
+                errors.append(f"Installed hook runtime differs from template: {path}")
 
     if installed:
         for path in settings_files():

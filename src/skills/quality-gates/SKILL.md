@@ -1,17 +1,17 @@
 ---
 name: quality-gates
-description: Requires independent implementation, testing, and review stages and controls the rework loop before Leader acceptance.
+description: Applies independent testing and review proportionately, with mandatory gates for high-risk changes and Leader discretion for routine work.
 ---
 
 # Quality gates
 
-A task is complete only when:
+For high-risk changes, a task is complete only when:
 
-- Implementer reports PASS;
+- the implementer (or Leader) has completed the approved change;
 - Tester reports PASS with command evidence;
 - Reviewer reports PASS with no scope violation;
 - Leader resolves any report conflict.
 
-Implementer self-verification is useful implementation evidence, but it never replaces the independent Tester gate.
+For low-risk and routine changes, Leader selects the smallest verification that supports the claim. Direct self-verification is acceptable when it is proportionate and its limits are reported.
 
-A failed test or review returns to Implementer within the approved scope. Reauthorization is mandatory when the fix requires new files, new directories, dependency changes, configuration changes, database changes, external services, or higher risk.
+A failed test or review returns to implementation while the risk class and confirmed boundary remain unchanged. Seek renewed confirmation only when the fix crosses into a high-risk category or materially changes the confirmed impact.

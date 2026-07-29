@@ -15,15 +15,16 @@ This repository intentionally does not use a custom VS Code extension or externa
 ## Protocol-enforced
 
 - User always starts from Leader rather than a built-in agent.
-- `批准执行` applies only to the latest plan.
-- Leader writes only when the user explicitly assigns direct work in the current task.
+- High-risk user confirmation applies only to the stated plan; native APIs cannot bind it to an exact capability token.
+- Leader's task-risk classification and decision to execute directly or delegate are instruction-enforced.
 - Implementer stays within the Leader-declared file scope.
-- Implementer deletes only exact file paths listed in the latest approved plan.
-- Leader uses direct read/command tools only for exceptional verification.
+- Implementer deletes only exact file paths listed in the confirmed high-risk scope.
+- Leader's direct local investigation, implementation and validation for low-risk or routine work are instruction-enforced.
 - Worker agents communicate only through structured reports.
-- A stale approval is not reused for a later task.
+- GitHub write and unknown GitHub actions can be routed through Hook confirmation; other tool APIs may still require instruction-level controls because VS Code does not expose a semantic authorization API.
+- A stale high-risk confirmation is not reused for a later task.
 
-VS Code does not currently expose a supported native API that turns a chat phrase into a durable, scoped capability token attached to later file edits. Hooks can inspect tool calls and block patterns, but cannot reliably understand the full semantic plan boundary or prove that a deletion path appeared in the latest approved plan.
+VS Code does not currently expose a supported native API that turns a chat confirmation into a durable, scoped capability token attached to later file edits. Hooks can inspect tool calls and block patterns, but cannot reliably understand the full semantic high-risk boundary or prove that a deletion path appeared in the confirmed scope.
 
 ## Result
 
