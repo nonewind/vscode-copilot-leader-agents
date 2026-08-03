@@ -9,6 +9,13 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class RepositoryTests(unittest.TestCase):
+    def test_leader_is_dispatch_only(self):
+        leader = ROOT / "src/agents/leader.agent.md"
+        frontmatter = leader.read_text(encoding="utf-8").split("---", 2)[1]
+        self.assertIn("tools: ['agent', 'todo']", frontmatter)
+        for forbidden in ["execute", "read", "edit", "search", "web", "browser", "github/*", "vscode"]:
+            self.assertNotIn(f"'{forbidden}'", frontmatter)
+
     def test_repository_validation(self):
         result = subprocess.run(
             [sys.executable, str(ROOT / "scripts/validate.py")],

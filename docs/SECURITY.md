@@ -12,6 +12,6 @@ The global PreToolUse hook blocks or requests confirmation for:
 - Sensitive configuration and credential file edits
 - GitHub write and unknown GitHub actions; named read-only GitHub actions remain available
 
-The guard is defense in depth. Tool lists define available mechanics, while Leader risk classification and high-risk scope remain protocol-enforced. The Hook cannot determine what the user most recently confirmed.
+The Leader has only `agent` and `todo`, so supported workspace operations are structurally routed to workers and unsupported tool requests stop. The guard is defense in depth for worker tool calls. Leader risk classification and high-risk scope remain protocol-enforced, and the Hook cannot determine what the user most recently confirmed.
 
 No API keys, tokens, endpoints, or GCMP credentials are read, copied, logged, or stored by this project.

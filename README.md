@@ -1,6 +1,6 @@
 # VS Code Copilot Leader Agents
 
-A native VS Code Copilot Chat setup that lets a high-quality Leader decide when to work directly and when low-cost workers add enough value to justify delegation.
+A native VS Code Copilot Chat setup that keeps a high-quality Leader focused on understanding, orchestration, and acceptance while low-cost workers perform supported tool-using tasks.
 
 中文文档见 [README.zh-CN.md](README.zh-CN.md)。
 
@@ -15,7 +15,7 @@ User -> Leader (current model)
           +-> Reviewer     (DeepSeek V4 Flash, read-only + commands)
 ```
 
-The Leader has the full configured VS Code tool set and acts as the task's risk and quality authority. It may investigate, implement, and verify low-risk work directly; workers are optional, isolated support for tasks where delegation adds value. Tool availability never bypasses the high-risk safety boundary.
+The Leader has only the `agent` and `todo` tools. It can handle tool-free conversation and clarification directly, but supported workspace investigation, code changes, and commands must be delegated to the configured low-cost workers. A clearly scoped change can go straight to Implementer, so cost-first routing does not require a mechanical four-stage pipeline. Requests that need tools absent from every worker, such as the removed Leader-only browser or GitHub tools, stop with an instruction to leave this mode instead of silently spending the current high-cost model.
 
 ## Requirements
 
@@ -55,13 +55,18 @@ The installer normalizes modified JSONC settings to standard JSON; comments are 
 
 After installation, reload VS Code and select **Leader** from the agent picker. VS Code Stable does not currently expose a supported setting for automatically making a custom agent the default, so this final selection is manual.
 
-## Risk-based workflow
+## Cost-first, risk-based workflow
 
-Leader selects the smallest workflow that is sufficient for the task:
+Leader selects the smallest worker workflow that is sufficient for the task:
 
-- **Low risk:** direct investigation, implementation, and proportionate self-verification for explicit, local, reversible work.
-- **Routine:** direct work or targeted worker delegation, with verification chosen for the actual uncertainty and impact.
+- **Tool-free:** Leader handles conversation, clarification, synthesis, and acceptance directly.
+- **Read-only investigation:** Analyzer inspects workspace facts.
+- **Low risk or routine change:** Implementer investigates, changes, and self-verifies in one focused invocation when practical. Tester and Reviewer are added only when they materially improve confidence.
 - **High risk:** an explicit plan and user confirmation before changes involving deletion, dependencies or lockfiles, configuration or secrets, migrations or data writes, external services or deployment, permissions or security boundaries, unclear scope, or difficult rollback. Independent Tester and Reviewer PASS are mandatory after implementation.
+
+If the configured worker model is unavailable or inadequate, Leader stops and asks for an explicit replacement worker model or asks the user to leave this mode. It never silently takes over tool-using work with the current high-cost model.
+
+This cost boundary intentionally narrows the mode's capabilities: the bundled workers cover workspace analysis, implementation, testing, and review. A request that needs a tool not listed by any worker must be handled outside this mode.
 
 `批准执行` is a recommended short form for high-risk confirmation; clear natural-language confirmation is also valid. A high-risk confirmation does not authorize later material expansion.
 

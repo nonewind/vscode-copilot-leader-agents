@@ -11,23 +11,7 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 WORKERS = ["analyzer", "implementer", "tester", "reviewer"]
-LEADER_TOOLS = {
-    "vscode",
-    "execute",
-    "read",
-    "agent",
-    "ms-azuretools.vscode-containers",
-    "ms-python.python",
-    "ms-vscode.vscode-websearchforcopilot",
-    "vicanent.gcmp",
-    "edit",
-    "search",
-    "web",
-    "browser",
-    "github/*",
-    "pylance-mcp-server/*",
-    "todo",
-}
+LEADER_TOOLS = {"agent", "todo"}
 
 
 def frontmatter(path: Path) -> dict[str, object]:
@@ -120,6 +104,10 @@ def validate(installed: bool) -> list[str]:
                 errors.append("Leader subagent allowlist is incorrect")
             if fm.get("user-invocable") is not True:
                 errors.append("Leader must be user-invocable")
+            text = path.read_text(encoding="utf-8")
+            for required in ["默认委派 Analyzer", "默认委派 Implementer", "不得由 Leader 静默接管"]:
+                if required not in text:
+                    errors.append(f"Leader delegation policy is missing: {required}")
         else:
             if fm.get("user-invocable") is not False:
                 errors.append(f"{name} must be hidden")
