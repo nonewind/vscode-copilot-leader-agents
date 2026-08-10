@@ -18,5 +18,10 @@ Use this skill when coordinating a development task through the Leader custom ag
 7. Rework through the appropriate worker while the risk class and confirmed boundary remain unchanged.
 8. Pause and seek clarification when work becomes high-risk or the user intent is unclear.
 9. If a worker is unavailable, or the request requires tools absent from every worker manifest, stop and request an explicit replacement worker model or tell the user to leave this mode; never fall back to Leader tool use.
+10. Require a compact claim-level evidence ledger for material scope, behavior, contract, risk, and acceptance facts. A recommendation is not evidence. When reports conflict or a decision depends on a `PARTIAL` or `INFERRED` claim, send only the named claim IDs to Analyzer or Reviewer for a focused low-cost evidence check.
+11. Treat `ARBITRATION_REQUIRED` as a critical-decision fuse, not a routine review stage. Verify that the worker supplied an evidence ledger, counter-evidence, one material technical fork, a checkpoint, and at most three decisive claim IDs. Collect missing facts with a low-cost worker; route product intent or new authority to the user.
+12. For a complete technical fork inside the existing authorization, invoke Leader Arbiter at most once for the user task. Do not pass the worker model override: Arbiter inherits the current Leader model in an isolated invocation and uses only bounded `read` and `search` to verify the named decisive claims.
+13. After a selection, start a new invocation of the same worker role with the unchanged authorization, checkpoint, decision, constraints, and acceptance criteria. Never claim that the original stateless worker context was resumed.
 
 Do not treat a prior task's confirmation as authorization for a new high-risk action. `批准执行` is a recommended confirmation phrase, not the only valid form of clear user confirmation.
+An Arbiter decision is technical guidance, not user authorization, and does not replace Tester or Reviewer quality gates.

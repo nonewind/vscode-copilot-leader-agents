@@ -13,9 +13,16 @@ User -> Leader (current model)
           +-> Implementer  (DeepSeek V4 Flash, scoped edits)
           +-> Tester       (DeepSeek V4 Flash, read-only + commands)
           +-> Reviewer     (DeepSeek V4 Flash, read-only + commands)
+          +-> Arbiter      (current Leader model, bounded read/search, one-shot fuse)
 ```
 
 The Leader has only the `agent` and `todo` tools. It can handle tool-free conversation and clarification directly, but supported workspace investigation, code changes, and commands must be delegated to the configured low-cost workers. A clearly scoped change can go straight to Implementer, so cost-first routing does not require a mechanical four-stage pipeline. Requests that need tools absent from every worker, such as the removed Leader-only browser or GitHub tools, stop with an instruction to leave this mode instead of silently spending the current high-cost model.
+
+Worker conclusions are not treated as evidence by themselves. Material scope, behavior, contract, risk, implementation, and acceptance claims carry a compact evidence ledger with a stable claim ID, `VERIFIED | PARTIAL | INFERRED`, exact source, minimal evidence, counter-evidence, and coverage gaps. Conflicting reports and decisions that depend on partial or inferred claims go first to a focused low-cost Analyzer or Reviewer check, not a repeated full investigation.
+
+Decision escalation is a critical-node fuse, not a default review stage. After gathering available evidence and performing a disconfirming check, a worker may return `ARBITRATION_REQUIRED` only when multiple plausible technical choices materially change behavior, contracts, security boundaries, architectural responsibility, or rollback characteristics and no evidence-backed safe default remains. Leader routes missing runtime facts back to a low-cost worker and product intent or new authority to the user. Only a complete technical fork inside the existing authorization goes to Arbiter, at most once per user task.
+
+Arbiter inherits the current Leader model in an isolated subagent invocation. It may use only `read` and `search` to verify at most three named decisive claims at their exact cited files and symbols. It has no execute or edit capability, cannot broadly scan the repository, expand scope, grant authority, or replace required testing and review. Native subagent calls are stateless, so a selection starts a new invocation of the same worker role with the original objective, unchanged authorization, checkpoint, decision, constraints, and acceptance criteria. The project does not claim to resume the original worker context.
 
 ## Requirements
 

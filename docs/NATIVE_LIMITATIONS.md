@@ -10,6 +10,7 @@ This repository intentionally does not use a custom VS Code extension or externa
 - Worker agents are hidden with `user-invocable: false`.
 - Leader can explicitly restrict available subagents.
 - Workers cannot invoke subagents because they have no `agent` tool and nested invocation is disabled.
+- Leader Arbiter has only `read` and `search`, no execute, edit, agent, or external tools, and no fixed model override. When explicitly allowed by Leader, its agent configuration inherits the current Leader model for an isolated technical decision.
 - Global hooks can deny known destructive tools and terminal commands.
 - Worker model is written into each worker agent configuration.
 - Tools absent from every worker manifest are intentionally unavailable in this mode; Leader cannot take them over.
@@ -23,11 +24,15 @@ This repository intentionally does not use a custom VS Code extension or externa
 - Implementer deletes only exact file paths listed in the confirmed high-risk scope.
 - Leader's tool-free conversation and synthesis boundary is reinforced by its tool manifest; semantic compliance still depends on VS Code honoring that manifest.
 - Worker agents communicate only through structured reports.
+- The one-Arbiter-per-task limit, escalation trigger, arbitration packet completeness, and stateless replay protocol are instruction-enforced.
+- Evidence-ledger completeness, `VERIFIED | PARTIAL | INFERRED` classification, the three-claim first-hand budget, exact-citation restriction, and prohibition on broad Arbiter scans are instruction-enforced rather than hard tool constraints.
 - GitHub write and unknown GitHub actions can be routed through Hook confirmation; other tool APIs may still require instruction-level controls because VS Code does not expose a semantic authorization API.
 - A stale high-risk confirmation is not reused for a later task.
 
 VS Code does not currently expose a supported native API that turns a chat confirmation into a durable, scoped capability token attached to later file edits. Hooks can inspect tool calls and block patterns, but cannot reliably understand the full semantic high-risk boundary or prove that a deletion path appeared in the confirmed scope.
 
+Each native subagent invocation is stateless. The main agent cannot send a follow-up message to or resume the same subagent invocation. Decision escalation therefore ends the worker call, performs a separate Arbiter call, and starts a new worker call with a structured checkpoint. The filesystem may preserve earlier edits, but private worker context does not survive. The protocol also cannot guarantee that a low-cost worker will recognize its own uncertainty, classify evidence honestly, include every relevant fact, or that Arbiter will obey the exact three-claim read budget.
+
 ## Result
 
-This native design structurally prevents Leader from taking over tool-using work, but it cannot prove which model the platform actually ran after a provider-side fallback. Runtime model and credit behavior still require a real VS Code smoke test. A custom extension would be required for deterministic per-plan write tokens, session state, exact path authorization, model/credit telemetry, and forced default-agent selection.
+This native design structurally prevents Leader from taking over workspace work and prevents Arbiter from executing commands or making changes, but it cannot prove which model the platform actually ran after a provider-side fallback. Runtime model and credit behavior still require a real VS Code smoke test. A custom extension would be required for deterministic per-plan write tokens, resumable worker sessions, hard read-scope enforcement, exact path authorization, model/credit telemetry, and forced default-agent selection.

@@ -12,6 +12,10 @@ For high-risk changes, a task is complete only when:
 - Reviewer reports PASS with no scope violation;
 - Leader resolves any report conflict.
 
+Tester and Reviewer attach evidence-ledger entries for material acceptance, contract, scope, permission, and data claims. A high-risk PASS cannot rely on an unresolved `PARTIAL` or `INFERRED` claim; use a focused evidence check, collect more evidence, or report the remaining gap instead.
+
 For low-risk and routine changes, Leader selects the smallest verification that supports the claim. Implementer self-verification is acceptable when it is proportionate and its limits are reported.
 
 A failed test or review returns to implementation while the risk class and confirmed boundary remain unchanged. Seek renewed confirmation only when the fix crosses into a high-risk category or materially changes the confirmed impact.
+
+Leader Arbiter does not replace Tester or Reviewer. An arbitration selection resolves one technical fork only; all originally required verification and independent high-risk gates still apply to the resumed implementation.

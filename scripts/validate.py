@@ -11,7 +11,9 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 WORKERS = ["analyzer", "implementer", "tester", "reviewer"]
+ARBITER = "arbiter"
 LEADER_TOOLS = {"agent", "todo"}
+ARBITER_TOOLS = {"read", "search"}
 
 
 def frontmatter(path: Path) -> dict[str, object]:
@@ -80,9 +82,10 @@ def validate(installed: bool) -> list[str]:
             "implementer": agents / "leader-implementer.agent.md",
             "tester": agents / "leader-tester.agent.md",
             "reviewer": agents / "leader-reviewer.agent.md",
+            "arbiter": agents / "leader-arbiter.agent.md",
         }
     else:
-        agent_files = {name: REPO_ROOT / "src/agents" / f"{name}.agent.md" for name in ["leader", *WORKERS]}
+        agent_files = {name: REPO_ROOT / "src/agents" / f"{name}.agent.md" for name in ["leader", *WORKERS, ARBITER]}
         skills = REPO_ROOT / "src/skills"
         hooks = REPO_ROOT / "src/hooks"
 
@@ -99,13 +102,13 @@ def validate(installed: bool) -> list[str]:
         if name == "leader":
             if tools != LEADER_TOOLS:
                 errors.append("Leader tool set is incorrect")
-            expected = {"Leader Analyzer", "Leader Implementer", "Leader Tester", "Leader Reviewer"}
+            expected = {"Leader Analyzer", "Leader Implementer", "Leader Tester", "Leader Reviewer", "Leader Arbiter"}
             if set(fm.get("agents", [])) != expected:
                 errors.append("Leader subagent allowlist is incorrect")
             if fm.get("user-invocable") is not True:
                 errors.append("Leader must be user-invocable")
             text = path.read_text(encoding="utf-8")
-            for required in ["默认委派 Analyzer", "默认委派 Implementer", "不得由 Leader 静默接管"]:
+            for required in ["默认委派 Analyzer", "默认委派 Implementer", "不得由 Leader 静默接管", "ARBITRATION_REQUIRED", "最多自动调用一次 Arbiter"]:
                 if required not in text:
                     errors.append(f"Leader delegation policy is missing: {required}")
         else:
@@ -113,13 +116,28 @@ def validate(installed: bool) -> list[str]:
                 errors.append(f"{name} must be hidden")
             if "agent" in tools:
                 errors.append(f"{name} must not have agent tool")
-            if name == "implementer" and not {"vscode", "execute", "edit"}.issubset(tools):
+            if name == ARBITER:
+                if tools != ARBITER_TOOLS:
+                    errors.append("Arbiter must have only read and search tools")
+                if "model" in fm:
+                    errors.append("Arbiter must inherit the current Leader model")
+                if fm.get("agents") != []:
+                    errors.append("Arbiter must not invoke subagents")
+                text = path.read_text(encoding="utf-8")
+                for required in ["SELECT_OPTION", "MORE_EVIDENCE_REQUIRED", "USER_DECISION_REQUIRED", "STOP", "不得扩大文件范围", "最多三个决定性", "First-hand verification"]:
+                    if required not in text:
+                        errors.append(f"Arbiter policy is missing: {required}")
+            elif name == "implementer" and not {"vscode", "execute", "edit"}.issubset(tools):
                 errors.append("Implementer must have vscode, execute, and edit tools")
             if name in {"tester", "reviewer"} and "execute" not in tools:
                 errors.append(f"{name} must have execute tool")
             if name != "implementer" and "edit" in tools:
                 errors.append(f"{name} must be read-only")
             text = path.read_text(encoding="utf-8")
+            if name in WORKERS:
+                for required in ["ARBITRATION_REQUIRED", "反证检查", "Why no safe local default", "Evidence ledger", "VERIFIED | PARTIAL | INFERRED"]:
+                    if required not in text:
+                        errors.append(f"{name} decision-escalation contract is missing: {required}")
             if installed and "{{WORKER_MODEL}}" in text:
                 errors.append(f"Unrendered model placeholder: {path}")
 
@@ -129,7 +147,7 @@ def validate(installed: bool) -> list[str]:
             if path.read_text(encoding="utf-8") != expected:
                 errors.append(f"Installed agent differs from template: {path}")
 
-    for skill_name in ["leader-orchestration", "structured-handoff", "cost-control", "scope-arbitration", "quality-gates"]:
+    for skill_name in ["leader-orchestration", "structured-handoff", "cost-control", "scope-arbitration", "quality-gates", "decision-escalation", "evidence-handoff"]:
         path = skills / skill_name / "SKILL.md"
         if not path.exists():
             errors.append(f"Missing skill: {path}")

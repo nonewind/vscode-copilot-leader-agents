@@ -16,6 +16,63 @@ class RepositoryTests(unittest.TestCase):
         for forbidden in ["execute", "read", "edit", "search", "web", "browser", "github/*", "vscode"]:
             self.assertNotIn(f"'{forbidden}'", frontmatter)
 
+    def test_decision_escalation_is_one_shot_and_isolated(self):
+        leader_text = (ROOT / "src/agents/leader.agent.md").read_text(encoding="utf-8")
+        leader_frontmatter = leader_text.split("---", 2)[1]
+        self.assertIn("'Leader Arbiter'", leader_frontmatter)
+        self.assertIn("每个用户任务最多自动调用一次 Arbiter", leader_text)
+        self.assertIn("不得指定 worker 模型", leader_text)
+        self.assertIn("原生子代理调用无状态", leader_text)
+
+        arbiter_text = (ROOT / "src/agents/arbiter.agent.md").read_text(encoding="utf-8")
+        arbiter_frontmatter = arbiter_text.split("---", 2)[1]
+        self.assertIn("tools: ['read', 'search']", arbiter_frontmatter)
+        self.assertIn("agents: []", arbiter_frontmatter)
+        self.assertNotIn("\nmodel:", arbiter_frontmatter)
+        self.assertNotIn("execute", arbiter_frontmatter)
+        self.assertNotIn("edit", arbiter_frontmatter)
+        self.assertIn("最多三个决定性", arbiter_text)
+        self.assertIn("First-hand verification", arbiter_text)
+        for token in ["SELECT_OPTION", "MORE_EVIDENCE_REQUIRED", "USER_DECISION_REQUIRED", "STOP"]:
+            self.assertIn(token, arbiter_text)
+
+    def test_all_workers_expose_narrow_arbitration_fuse(self):
+        for name in ["analyzer", "implementer", "tester", "reviewer"]:
+            with self.subTest(name=name):
+                text = (ROOT / f"src/agents/{name}.agent.md").read_text(encoding="utf-8")
+                self.assertIn("ARBITRATION_REQUIRED", text)
+                self.assertIn("反证检查", text)
+                self.assertIn("Why no safe local default", text)
+                self.assertIn("Evidence ledger", text)
+                self.assertIn("VERIFIED | PARTIAL | INFERRED", text)
+
+        skill = (ROOT / "src/skills/decision-escalation/SKILL.md").read_text(encoding="utf-8")
+        self.assertIn("critical-decision fuse, not a default review stage", skill)
+        self.assertIn("at most one automatic Arbiter invocation", skill)
+        self.assertIn("A subagent invocation cannot be resumed", skill)
+
+    def test_evidence_handoff_prefers_low_cost_checks(self):
+        leader_text = (ROOT / "src/agents/leader.agent.md").read_text(encoding="utf-8")
+        self.assertIn("## 二手事实控制", leader_text)
+        self.assertIn("通常不超过五条", leader_text)
+        self.assertIn("仅核对点名的 `CLAIM_ID`", leader_text)
+        self.assertIn("最多三个决定性 `CLAIM_ID`", leader_text)
+
+        skill = (ROOT / "src/skills/evidence-handoff/SKILL.md").read_text(encoding="utf-8")
+        for token in ["CLAIM_ID", "VERIFIED", "PARTIAL", "INFERRED", "EVIDENCE_CHECK", "at most three decisive claim IDs"]:
+            self.assertIn(token, skill)
+
+        for name in ["analyzer", "reviewer"]:
+            text = (ROOT / f"src/agents/{name}.agent.md").read_text(encoding="utf-8")
+            self.assertIn("EVIDENCE_CHECK: CONFIRMED | CONTRADICTED | INSUFFICIENT_EVIDENCE", text)
+
+        quality_gates = (ROOT / "src/skills/quality-gates/SKILL.md").read_text(encoding="utf-8")
+        self.assertIn("A high-risk PASS cannot rely on an unresolved `PARTIAL` or `INFERRED` claim", quality_gates)
+
+    def test_installer_includes_arbiter(self):
+        text = (ROOT / "scripts/install.py").read_text(encoding="utf-8")
+        self.assertIn('"arbiter.agent.md": "leader-arbiter.agent.md"', text)
+
     def test_repository_validation(self):
         result = subprocess.run(
             [sys.executable, str(ROOT / "scripts/validate.py")],

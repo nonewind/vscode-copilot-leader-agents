@@ -275,6 +275,7 @@ def main() -> int:
         "implementer.agent.md": "leader-implementer.agent.md",
         "tester.agent.md": "leader-tester.agent.md",
         "reviewer.agent.md": "leader-reviewer.agent.md",
+        "arbiter.agent.md": "leader-arbiter.agent.md",
     }
     for source_name, target_name in agent_map.items():
         render_agent(REPO_ROOT / "src/agents" / source_name, agent_dir / target_name, model, backup_root, args.dry_run)

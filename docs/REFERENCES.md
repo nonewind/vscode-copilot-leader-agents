@@ -9,4 +9,4 @@ Authoritative references used by this project:
 - VS Code AI settings: https://code.visualstudio.com/docs/agents/reference/ai-settings
 - GCMP Marketplace page: https://marketplace.visualstudio.com/items?itemName=vicanent.gcmp
 
-Verified on 2026-07-21.
+Verified on 2026-08-10. The subagent reference explicitly documents isolated context, stateless invocations, lack of follow-up messaging to the same subagent, custom-agent model inheritance, and explicit allowlist override behavior.
