@@ -26,10 +26,24 @@ class RepositoryTests(unittest.TestCase):
         for name in ["analyzer", "implementer", "tester", "reviewer"]:
             with self.subTest(name=name):
                 text = (ROOT / f"src/agents/{name}.agent.md").read_text(encoding="utf-8")
+                frontmatter = text.split("---", 2)[1]
+                self.assertNotIn("\nmodel:", frontmatter)
                 for token in ["GOAL", "BOUNDARIES", "DONE", "STOP_AND_REPORT", "NEEDS_LEADER"]:
                     self.assertIn(token, text)
                 self.assertNotIn("ARBITRATION_REQUIRED", text)
                 self.assertNotIn("Evidence ledger", text)
+
+    def test_leader_owns_explicit_worker_model(self):
+        expected_model = "DeepSeek-V4-Flash (Go) (gcmp.opencode)"
+        leader = (ROOT / "src/agents/leader.agent.md").read_text(encoding="utf-8")
+        self.assertIn(expected_model, leader)
+        self.assertIn("显式指定该模型", leader)
+        self.assertIn("不得自动发现、静默回退", leader)
+
+        installer = (ROOT / "scripts/install.py").read_text(encoding="utf-8")
+        self.assertIn(f'DEFAULT_WORKER_MODEL = "{expected_model}"', installer)
+        self.assertNotIn("def discover_model", installer)
+        self.assertIn("model = args.model or DEFAULT_WORKER_MODEL", installer)
 
     def test_parallelism_is_read_fanout_and_serial_write(self):
         leader = (ROOT / "src/agents/leader.agent.md").read_text(encoding="utf-8")

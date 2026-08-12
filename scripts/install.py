@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-CANONICAL_MODEL = "DeepSeek-V4-Flash (gcmp.deepseek)"
+DEFAULT_WORKER_MODEL = "DeepSeek-V4-Flash (Go) (gcmp.opencode)"
 EXTENSION_ID = "vicanent.gcmp"
 LEGACY_BUILTIN_MODEL_KEYS = (
     "chat.exploreAgent.defaultModel",
@@ -27,7 +27,7 @@ LEGACY_BUILTIN_MODEL_KEYS = (
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Install VS Code Copilot Leader agents globally")
-    parser.add_argument("--model", help="Exact worker model ID")
+    parser.add_argument("--model", help=f"Explicit replacement Worker model (default: {DEFAULT_WORKER_MODEL})")
     parser.add_argument("--skip-extension", action="store_true", help="Do not install GCMP")
     parser.add_argument("--dry-run", action="store_true")
     return parser.parse_args()
@@ -117,41 +117,6 @@ def read_settings(path: Path) -> dict[str, Any]:
         raise RuntimeError(f"Cannot parse VS Code settings: {path}: {exc}") from exc
 
 
-def discover_model(settings_files: list[Path]) -> str:
-    explicit = os.environ.get("COPILOT_WORKER_MODEL")
-    if explicit:
-        return explicit
-
-    candidates: list[str] = []
-    pattern = re.compile(r"[^\"'\s,]+deepseek[^\"'\s,]*v4[^\"'\s,]*flash[^\"'\s,]*", re.I)
-    for path in settings_files:
-        if path.exists():
-            text = path.read_text(encoding="utf-8", errors="ignore")
-            candidates.extend(pattern.findall(text))
-
-    extension_roots = [Path.home() / ".vscode/extensions"]
-    if platform.system() == "Windows":
-        extension_roots.append(Path(os.environ.get("USERPROFILE", str(Path.home()))) / ".vscode/extensions")
-    for ext_root in extension_roots:
-        if not ext_root.exists():
-            continue
-        for ext in ext_root.glob("vicanent.gcmp-*"):
-            for filename in ["package.json", "README.md", "README.zh-CN.md"]:
-                path = ext / filename
-                if path.exists():
-                    text = path.read_text(encoding="utf-8", errors="ignore")
-                    candidates.extend(pattern.findall(text))
-
-    normalized: list[str] = []
-    for value in candidates:
-        value = value.strip('"\'`')
-        if value not in normalized:
-            normalized.append(value)
-    if CANONICAL_MODEL in normalized:
-        return CANONICAL_MODEL
-    return normalized[0] if len(normalized) == 1 else CANONICAL_MODEL
-
-
 def ensure_supported_vscode(code: str) -> None:
     result = run([code, "--version"], check=False)
     first = result.stdout.splitlines()[0].strip() if result.stdout.splitlines() else ""
@@ -191,7 +156,7 @@ def backup_item(source: Path, backup_root: Path, dry_run: bool) -> None:
 
 def render_agent(source: Path, target: Path, model: str, backup_root: Path, dry_run: bool) -> None:
     backup_item(target, backup_root, dry_run)
-    content = source.read_text(encoding="utf-8").replace("{{WORKER_MODEL}}", model)
+    content = source.read_text(encoding="utf-8").replace(DEFAULT_WORKER_MODEL, model)
     print(f"Install agent: {target}")
     if not dry_run:
         target.parent.mkdir(parents=True, exist_ok=True)
@@ -261,7 +226,7 @@ def main() -> int:
         ensure_extension(code, args.dry_run)
 
     settings_files = user_settings_files()
-    model = args.model or discover_model(settings_files)
+    model = args.model or DEFAULT_WORKER_MODEL
     print(f"Worker model: {model}")
 
     home = Path.home()

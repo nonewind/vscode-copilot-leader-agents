@@ -11,6 +11,7 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 WORKERS = ["analyzer", "implementer", "tester", "reviewer"]
+DEFAULT_WORKER_MODEL = "DeepSeek-V4-Flash (Go) (gcmp.opencode)"
 SKILLS = ["leader-orchestration", "cost-control", "quality-gates"]
 LEADER_TOOLS = {"agent", "todo", "read", "search"}
 WORKER_TOOLS = {
@@ -125,7 +126,7 @@ def validate(installed: bool) -> list[str]:
                 errors.append("Leader subagent allowlist is incorrect")
             if fm.get("user-invocable") is not True:
                 errors.append("Leader must be user-invocable")
-            require_tokens(errors, "Leader control policy", text, ["意图对齐", "`GOAL`", "`BOUNDARIES`", "`DONE`", "`STOP_AND_REPORT`", "NEEDS_LEADER", "不得代替 Analyzer 广泛扫描"])
+            require_tokens(errors, "Leader control policy", text, ["意图对齐", "`GOAL`", "`BOUNDARIES`", "`DONE`", "`STOP_AND_REPORT`", "NEEDS_LEADER", "不得代替 Analyzer 广泛扫描", worker_model or DEFAULT_WORKER_MODEL, "显式指定该模型", "不得自动发现、静默回退"])
         else:
             if fm.get("user-invocable") is not False:
                 errors.append(f"{name} must be hidden")
@@ -133,15 +134,17 @@ def validate(installed: bool) -> list[str]:
                 errors.append(f"{name} must not invoke subagents")
             if tools != WORKER_TOOLS[name]:
                 errors.append(f"{name} tool set is incorrect")
+            if "model" in fm:
+                errors.append(f"{name} must not fix its own model")
             require_tokens(errors, f"{name} execution contract", text, ["GOAL", "BOUNDARIES", "DONE", "STOP_AND_REPORT", "NEEDS_LEADER"])
 
         if installed and worker_model:
             source = REPO_ROOT / "src/agents" / f"{name}.agent.md"
-            expected = source.read_text(encoding="utf-8").replace("{{WORKER_MODEL}}", worker_model)
+            expected = source.read_text(encoding="utf-8").replace(DEFAULT_WORKER_MODEL, worker_model)
             if text != expected:
                 errors.append(f"Installed agent differs from template: {path}")
-        elif name != "leader" and "{{WORKER_MODEL}}" not in text:
-            errors.append(f"Worker model placeholder is missing: {path}")
+        elif name != "leader" and "{{WORKER_MODEL}}" in text:
+            errors.append(f"Worker must not contain a model placeholder: {path}")
 
     for skill_name in SKILLS:
         path = skills / skill_name / "SKILL.md"

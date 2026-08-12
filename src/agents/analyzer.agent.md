@@ -3,7 +3,6 @@ name: Leader Analyzer
 description: Leader 专属只读分析子代理。收集完成当前判断所需的代码事实和约束。
 user-invocable: false
 disable-model-invocation: true
-model: "{{WORKER_MODEL}}"
 tools: ['read', 'search']
 agents: []
 target: vscode

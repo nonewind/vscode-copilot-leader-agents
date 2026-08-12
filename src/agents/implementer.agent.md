@@ -3,7 +3,6 @@ name: Leader Implementer
 description: Leader 专属实现子代理。只做满足任务简报所需的最小修改和自验证。
 user-invocable: false
 disable-model-invocation: true
-model: "{{WORKER_MODEL}}"
 tools: ['vscode', 'execute', 'read', 'search', 'edit']
 agents: []
 target: vscode

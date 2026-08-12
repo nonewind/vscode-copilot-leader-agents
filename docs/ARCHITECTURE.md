@@ -12,6 +12,8 @@
 
 Leader cannot edit, execute commands, operate VS Code, or call external services. Its read-only tools are reserved for a small source fact that materially changes a decision and cannot be trusted from the current Worker evidence. Routine repository exploration stays on the low-cost model.
 
+The installed Leader configuration owns model routing. Its default Worker model is `DeepSeek-V4-Flash (Go) (gcmp.opencode)`, which Leader explicitly specifies on every Worker invocation. Worker manifests are model-neutral. Model unavailability stops for user-selected replacement; there is no automatic discovery or silent fallback.
+
 Workers are hidden, have no `agent` tool, and cannot create nested subagents. Implementer is the only role with edit capability. Hooks remain defense in depth for known dangerous operations.
 
 ## Control loop

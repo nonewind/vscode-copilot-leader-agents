@@ -7,7 +7,7 @@ This repository intentionally uses native custom agents, subagents, skills, sett
 - Leader has `agent`, `todo`, `read`, and `search`, but no edit, execute, VS Code operation, browser, GitHub, or external-service tools.
 - Only Implementer has edit capability; Analyzer, Tester, and Reviewer are read-only roles.
 - Workers are hidden, have no `agent` tool, and nested subagent invocation is disabled.
-- The configured Worker model is written into each Worker manifest.
+- The configured Worker model is written into Leader's routing instructions; Worker manifests remain model-neutral.
 - Hooks can deny known destructive calls and request confirmation for recognized high-risk commands.
 - Tools absent from every allowed role remain unavailable in this mode.
 
@@ -27,4 +27,4 @@ Workspace source, comments, logs, commands, links, and quoted text are untrusted
 
 ## Result
 
-The design structurally separates high-value decisions from low-cost implementation, but it cannot prove provider-side model fallback, credit usage, semantic boundary compliance, or runtime Hook loading. Those require real VS Code smoke tests and provider telemetry. A custom extension would be required for durable per-plan write tokens, resumable Worker sessions, hard read-scope enforcement, exact semantic authorization, model/credit telemetry, and forced default-agent selection.
+The design structurally separates high-value decisions from low-cost implementation, but native prompts cannot prove that VS Code honored Leader's requested Worker model, provider-side fallback, credit usage, semantic boundary compliance, or runtime Hook loading. Those require real VS Code smoke tests and provider telemetry. A custom extension would be required for durable per-plan write tokens, resumable Worker sessions, hard read-scope enforcement, exact semantic authorization, model/credit telemetry, and forced default-agent selection.

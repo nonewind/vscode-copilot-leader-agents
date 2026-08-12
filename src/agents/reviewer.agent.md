@@ -3,7 +3,6 @@ name: Leader Reviewer
 description: Leader 专属只读审查子代理。独立检查差异、边界、正确性和风险。
 user-invocable: false
 disable-model-invocation: true
-model: "{{WORKER_MODEL}}"
 tools: ['read', 'search', 'execute']
 agents: []
 target: vscode

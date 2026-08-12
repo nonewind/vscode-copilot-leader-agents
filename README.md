@@ -16,6 +16,8 @@ User <-> Leader (current model; agent, todo, bounded read/search)
 
 Leader has no edit, execute, VS Code operation, browser, GitHub, or external-service tools. Routine workspace work stays on workers. Leader may use `read` and `search` only for a small decisive fact when worker evidence conflicts or is insufficient, preserving the user's full conversation context without a separate arbitration agent.
 
+Leader fixes the default submodel to `DeepSeek-V4-Flash (Go) (gcmp.opencode)` and explicitly specifies it on every Analyzer, Implementer, Tester, or Reviewer invocation. Worker manifests remain model-neutral. If that model is unavailable, Leader stops for a user-selected replacement; it does not discover or silently fall back to another model.
+
 Before modification, Leader aligns the user-visible goal and asks one to three concrete questions only when the answer changes the result, boundary, or authority. Each worker receives a concise brief:
 
 - `GOAL`: the result to produce or establish;
@@ -36,7 +38,7 @@ Leader may run distinct read-only investigations in parallel when they are indep
 
 Verification is evidence-triggered: direct behavior and diff, then a targeted check, then module or broad validation only when shared impact, a direct failure, concrete contract risk, or the confirmed plan requires it.
 
-If the worker model is unavailable or repeatedly inadequate, Leader stops and asks for a replacement model or asks the user to leave this mode. It never takes over implementation tools. Requests requiring tools absent from every worker also leave this mode.
+If the Worker model is unavailable or repeatedly inadequate, Leader stops and asks for a user-selected replacement model or asks the user to leave this mode. It never auto-discovers, silently falls back, or takes over implementation tools. Requests requiring tools absent from every worker also leave this mode.
 
 ## Requirements
 
@@ -61,10 +63,10 @@ Set-ExecutionPolicy -Scope Process Bypass
 .\install.ps1
 ```
 
-Optional explicit worker model:
+Explicit replacement only when selected by the user:
 
 ```bash
-./install.sh --model "DeepSeek-V4-Flash (gcmp.deepseek)"
+./install.sh --model "exact-user-selected-model-id"
 ```
 
 Existing managed files and modified VS Code settings are backed up. Upgrading to 0.4.0 removes the previously managed Arbiter agent and retired workflow skills after backing them up. Reload VS Code and select **Leader** after installation. GCMP credentials remain user-managed and are not read or stored.

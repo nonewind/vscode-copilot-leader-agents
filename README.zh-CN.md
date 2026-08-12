@@ -14,7 +14,7 @@
 
 Leader没有编辑、终端、VS Code操作、浏览器、GitHub或外部服务工具。日常工作区操作必须交给Worker；只有Worker证据冲突或不足、且某项源码事实会改变关键判断时，Leader才在完整用户上下文中有限使用`read/search`，证据足够后立即停止。
 
-四个Worker默认固定为DeepSeek V4 Flash，对用户隐藏，且不能继续创建子代理。
+Leader默认固定子模型为`DeepSeek-V4-Flash (Go) (gcmp.opencode)`，每次调用时显式指定给Analyzer、Implementer、Tester或Reviewer；四个Worker自身不声明模型。Worker对用户隐藏，且不能继续创建子代理。
 
 ## 意图与执行边界
 
@@ -40,7 +40,7 @@ Leader可以把互不依赖、范围不重叠、结果可独立汇总且没有�
 
 验证按证据升级：先看直接行为和差异，再做目标测试或静态检查；只有共享影响、直接失败、明确契约风险或已确认计划要求时，才扩大到模块、完整构建或全量测试。低一级已经足以验收时必须停止。
 
-Worker模型不可用或持续不足时，Leader停止并请用户指定替代模型或退出本模式，不得接管实施工具。任务需要四个Worker都没有的工具时同样退出本模式。
+Worker模型不可用或持续不足时，Leader停止并请用户明确指定替代模型或退出本模式；不自动发现、不静默回退，也不得接管实施工具。任务需要四个Worker都没有的工具时同样退出本模式。
 
 ## 安装要求
 
@@ -65,10 +65,10 @@ Set-ExecutionPolicy -Scope Process Bypass
 .\install.ps1
 ```
 
-可显式指定Worker模型：
+只有用户选择替代Worker模型时才显式覆盖默认值：
 
 ```bash
-./install.sh --model "DeepSeek-V4-Flash (gcmp.deepseek)"
+./install.sh --model "用户选择的精确模型ID"
 ```
 
 安装器会备份所有同名托管文件和被修改的VS Code设置。升级到0.4.0时，会先备份再清除旧版托管的Arbiter和四个已退役流程Skill。安装完成后重载VS Code并选择`Leader`。GCMP凭据由用户自行配置，本项目不会读取或保存。

@@ -3,7 +3,6 @@ name: Leader Tester
 description: Leader 专属只读测试子代理。执行足以判断验收结果的最窄验证。
 user-invocable: false
 disable-model-invocation: true
-model: "{{WORKER_MODEL}}"
 tools: ['read', 'search', 'execute']
 agents: []
 target: vscode
