@@ -208,6 +208,19 @@ def copy_tree(source: Path, target: Path, backup_root: Path, dry_run: bool) -> N
         shutil.copytree(source, target)
 
 
+def remove_obsolete_item(target: Path, backup_root: Path, dry_run: bool) -> None:
+    if not target.exists():
+        return
+    backup_item(target, backup_root, dry_run)
+    print(f"Remove obsolete managed item: {target}")
+    if dry_run:
+        return
+    if target.is_dir():
+        shutil.rmtree(target)
+    else:
+        target.unlink()
+
+
 def merge_profile_settings(
     path: Path,
     model: str,
@@ -275,14 +288,17 @@ def main() -> int:
         "implementer.agent.md": "leader-implementer.agent.md",
         "tester.agent.md": "leader-tester.agent.md",
         "reviewer.agent.md": "leader-reviewer.agent.md",
-        "arbiter.agent.md": "leader-arbiter.agent.md",
     }
     for source_name, target_name in agent_map.items():
         render_agent(REPO_ROOT / "src/agents" / source_name, agent_dir / target_name, model, backup_root, args.dry_run)
 
-    for skill in sorted((REPO_ROOT / "src/skills").iterdir()):
-        if skill.is_dir():
-            copy_tree(skill, skill_dir / skill.name, backup_root, args.dry_run)
+    remove_obsolete_item(agent_dir / "leader-arbiter.agent.md", backup_root, args.dry_run)
+    for obsolete_skill in ["decision-escalation", "evidence-handoff", "scope-arbitration", "structured-handoff"]:
+        remove_obsolete_item(skill_dir / obsolete_skill, backup_root, args.dry_run)
+
+    for skill_name in ["leader-orchestration", "cost-control", "quality-gates"]:
+        skill = REPO_ROOT / "src/skills" / skill_name
+        copy_tree(skill, skill_dir / skill_name, backup_root, args.dry_run)
 
     guard_runtime = runtime_root / "hooks"
     if not args.dry_run:

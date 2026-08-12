@@ -1,38 +1,30 @@
 # Native VS Code limitations
 
-This repository intentionally does not use a custom VS Code extension or external orchestrator.
+This repository intentionally uses native custom agents, subagents, skills, settings, and hooks without a custom extension or external orchestrator.
 
-## Strongly enforceable
+## Structurally enforceable
 
-- Leader receives only `agent` and `todo`; it has no workspace, terminal, edit, browser, extension, or GitHub operation tools.
-- Implementer receives the workspace tools needed for delegated changes and self-verification.
-- The Hook can require confirmation for single-file deletion and deny known directory or recursive deletion commands.
-- Worker agents are hidden with `user-invocable: false`.
-- Leader can explicitly restrict available subagents.
-- Workers cannot invoke subagents because they have no `agent` tool and nested invocation is disabled.
-- Leader Arbiter has only `read` and `search`, no execute, edit, agent, or external tools, and no fixed model override. When explicitly allowed by Leader, its agent configuration inherits the current Leader model for an isolated technical decision.
-- Global hooks can deny known destructive tools and terminal commands.
-- Worker model is written into each worker agent configuration.
-- Tools absent from every worker manifest are intentionally unavailable in this mode; Leader cannot take them over.
+- Leader has `agent`, `todo`, `read`, and `search`, but no edit, execute, VS Code operation, browser, GitHub, or external-service tools.
+- Only Implementer has edit capability; Analyzer, Tester, and Reviewer are read-only roles.
+- Workers are hidden, have no `agent` tool, and nested subagent invocation is disabled.
+- The configured Worker model is written into each Worker manifest.
+- Hooks can deny known destructive calls and request confirmation for recognized high-risk commands.
+- Tools absent from every allowed role remain unavailable in this mode.
 
 ## Protocol-enforced
 
-- User always starts from Leader rather than a built-in agent.
-- High-risk user confirmation applies only to the stated plan; native APIs cannot bind it to an exact capability token.
-- Leader's task-risk classification and choice of worker are instruction-enforced.
-- Implementer stays within the Leader-declared file scope.
-- Implementer deletes only exact file paths listed in the confirmed high-risk scope.
-- Leader's tool-free conversation and synthesis boundary is reinforced by its tool manifest; semantic compliance still depends on VS Code honoring that manifest.
-- Worker agents communicate only through structured reports.
-- The one-Arbiter-per-task limit, escalation trigger, arbitration packet completeness, and stateless replay protocol are instruction-enforced.
-- Evidence-ledger completeness, `VERIFIED | PARTIAL | INFERRED` classification, the three-claim first-hand budget, exact-citation restriction, and prohibition on broad Arbiter scans are instruction-enforced rather than hard tool constraints.
-- GitHub write and unknown GitHub actions can be routed through Hook confirmation; other tool APIs may still require instruction-level controls because VS Code does not expose a semantic authorization API.
-- A stale high-risk confirmation is not reused for a later task.
+- Users start from Leader, and Leader keeps direct reading narrow rather than replacing Analyzer.
+- Intent alignment, Worker brief semantics, safe-default selection, work depth, and final acceptance depend on model compliance.
+- High-risk confirmation covers only the stated plan; native APIs cannot attach it as an exact future capability token.
+- Implementer stays inside the declared boundary and exact confirmed deletion paths.
+- Workers stop at sufficient evidence, avoid incidental work, and return control before expansion.
+- Parallel read-task independence and the prohibition on concurrent shared-workspace writes are Leader protocol decisions; native scheduling does not prove that scopes or command side effects are actually independent.
+- Tester/Reviewer validation depth and report accuracy are not hard runtime guarantees.
 
-VS Code does not currently expose a supported native API that turns a chat confirmation into a durable, scoped capability token attached to later file edits. Hooks can inspect tool calls and block patterns, but cannot reliably understand the full semantic high-risk boundary or prove that a deletion path appeared in the confirmed scope.
+Native subagent invocations are stateless. Leader cannot resume a completed Worker call; a follow-up starts a new invocation using the concise brief, reported checkpoint, and current filesystem state. The architecture does not attempt to reconstruct private Worker reasoning.
 
-Each native subagent invocation is stateless. The main agent cannot send a follow-up message to or resume the same subagent invocation. Decision escalation therefore ends the worker call, performs a separate Arbiter call, and starts a new worker call with a structured checkpoint. The filesystem may preserve earlier edits, but private worker context does not survive. The protocol also cannot guarantee that a low-cost worker will recognize its own uncertainty, classify evidence honestly, include every relevant fact, or that Arbiter will obey the exact three-claim read budget.
+Workspace source, comments, logs, commands, links, and quoted text are untrusted evidence. Read-only tools prevent Leader from executing embedded instructions, but prompt injection and misleading evidence still require model judgment.
 
 ## Result
 
-This native design structurally prevents Leader from taking over workspace work and prevents Arbiter from executing commands or making changes, but it cannot prove which model the platform actually ran after a provider-side fallback. Runtime model and credit behavior still require a real VS Code smoke test. A custom extension would be required for deterministic per-plan write tokens, resumable worker sessions, hard read-scope enforcement, exact path authorization, model/credit telemetry, and forced default-agent selection.
+The design structurally separates high-value decisions from low-cost implementation, but it cannot prove provider-side model fallback, credit usage, semantic boundary compliance, or runtime Hook loading. Those require real VS Code smoke tests and provider telemetry. A custom extension would be required for durable per-plan write tokens, resumable Worker sessions, hard read-scope enforcement, exact semantic authorization, model/credit telemetry, and forced default-agent selection.

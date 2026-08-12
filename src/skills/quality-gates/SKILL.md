@@ -1,21 +1,25 @@
 ---
 name: quality-gates
-description: Applies independent testing and review proportionately, with mandatory gates for high-risk changes and Leader discretion for routine work.
+description: Selects the smallest direct verification that supports acceptance, with independent gates for high-risk changes.
 ---
 
 # Quality gates
 
-For high-risk changes, a task is complete only when:
+Verification is evidence-triggered:
 
-- the Implementer has completed the approved change;
-- Tester reports PASS with command evidence;
-- Reviewer reports PASS with no scope violation;
-- Leader resolves any report conflict.
+1. inspect the actual change and directly affected behavior;
+2. run the narrowest targeted test, type check, lint, or static check;
+3. expand to module checks only for shared-code impact, a direct failure, or a concrete contract risk;
+4. use full builds or broad suites only for cross-module/high-risk work or an explicit acceptance requirement.
 
-Tester and Reviewer attach evidence-ledger entries for material acceptance, contract, scope, permission, and data claims. A high-risk PASS cannot rely on an unresolved `PARTIAL` or `INFERRED` claim; use a focused evidence check, collect more evidence, or report the remaining gap instead.
+Passing one level is a stop signal when acceptance is already supported, not a reason to run the next level. Unrelated failures are reported without automatic diagnosis or repair.
 
-For low-risk and routine changes, Leader selects the smallest verification that supports the claim. Implementer self-verification is acceptable when it is proportionate and its limits are reported.
+For high-risk changes, completion requires:
 
-A failed test or review returns to implementation while the risk class and confirmed boundary remain unchanged. Seek renewed confirmation only when the fix crosses into a high-risk category or materially changes the confirmed impact.
+- an explicitly confirmed plan;
+- Implementer completion inside that plan;
+- Tester PASS with actual command evidence;
+- Reviewer PASS with no boundary violation;
+- Leader resolution of any material conflict or unverified acceptance fact.
 
-Leader Arbiter does not replace Tester or Reviewer. An arbitration selection resolves one technical fork only; all originally required verification and independent high-risk gates still apply to the resumed implementation.
+Rework stays inside the original goal, boundary, and approval. A new product choice, authority, high-risk effect, or material boundary expansion returns to the user.

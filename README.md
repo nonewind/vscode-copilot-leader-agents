@@ -1,28 +1,42 @@
 # VS Code Copilot Leader Agents
 
-A native VS Code Copilot Chat setup that keeps a high-quality Leader focused on understanding, orchestration, and acceptance while low-cost workers perform supported tool-using tasks.
+A native VS Code Copilot Chat setup that spends a high-capability Leader model on user intent, key decisions, narrow fact checks, orchestration, and acceptance while a configured low-cost model performs workspace investigation, implementation, testing, and review.
 
 中文文档见 [README.zh-CN.md](README.zh-CN.md)。
 
 ## Architecture
 
 ```text
-User -> Leader (current model)
-          |
-          +-> Analyzer     (DeepSeek V4 Flash, read-only)
-          +-> Implementer  (DeepSeek V4 Flash, scoped edits)
-          +-> Tester       (DeepSeek V4 Flash, read-only + commands)
-          +-> Reviewer     (DeepSeek V4 Flash, read-only + commands)
-          +-> Arbiter      (current Leader model, bounded read/search, one-shot fuse)
+User <-> Leader (current model; agent, todo, bounded read/search)
+           |-- Analyzer     (worker model; read-only investigation)
+           |-- Implementer  (worker model; scoped edits and self-checks)
+           |-- Tester       (worker model; targeted commands)
+           `-- Reviewer     (worker model; diff and risk review)
 ```
 
-The Leader has only the `agent` and `todo` tools. It can handle tool-free conversation and clarification directly, but supported workspace investigation, code changes, and commands must be delegated to the configured low-cost workers. A clearly scoped change can go straight to Implementer, so cost-first routing does not require a mechanical four-stage pipeline. Requests that need tools absent from every worker, such as the removed Leader-only browser or GitHub tools, stop with an instruction to leave this mode instead of silently spending the current high-cost model.
+Leader has no edit, execute, VS Code operation, browser, GitHub, or external-service tools. Routine workspace work stays on workers. Leader may use `read` and `search` only for a small decisive fact when worker evidence conflicts or is insufficient, preserving the user's full conversation context without a separate arbitration agent.
 
-Worker conclusions are not treated as evidence by themselves. Material scope, behavior, contract, risk, implementation, and acceptance claims carry a compact evidence ledger with a stable claim ID, `VERIFIED | PARTIAL | INFERRED`, exact source, minimal evidence, counter-evidence, and coverage gaps. Conflicting reports and decisions that depend on partial or inferred claims go first to a focused low-cost Analyzer or Reviewer check, not a repeated full investigation.
+Before modification, Leader aligns the user-visible goal and asks one to three concrete questions only when the answer changes the result, boundary, or authority. Each worker receives a concise brief:
 
-Decision escalation is a critical-node fuse, not a default review stage. After gathering available evidence and performing a disconfirming check, a worker may return `ARBITRATION_REQUIRED` only when multiple plausible technical choices materially change behavior, contracts, security boundaries, architectural responsibility, or rollback characteristics and no evidence-backed safe default remains. Leader routes missing runtime facts back to a low-cost worker and product intent or new authority to the user. Only a complete technical fork inside the existing authorization goes to Arbiter, at most once per user task.
+- `GOAL`: the result to produce or establish;
+- `BOUNDARIES`: allowed scope, preserved behavior, and non-goals;
+- `DONE`: direct evidence that is sufficient to stop;
+- `STOP_AND_REPORT`: new choices, expansion, risk, or validation needs that return to Leader.
 
-Arbiter inherits the current Leader model in an isolated subagent invocation. It may use only `read` and `search` to verify at most three named decisive claims at their exact cited files and symbols. It has no execute or edit capability, cannot broadly scan the repository, expand scope, grant authority, or replace required testing and review. Native subagent calls are stateless, so a selection starts a new invocation of the same worker role with the original objective, unchanged authorization, checkpoint, decision, constraints, and acceptance criteria. The project does not claim to resume the original worker context.
+This is a semantic boundary, not a form or quota. Clear reversible work uses the fast path. Workers stop at the first sufficient evidence, report incidental findings without pursuing them, and return `NEEDS_LEADER` before expanding the task.
+
+Leader may run distinct read-only investigations in parallel when they are independent, non-overlapping, independently composable, and free of shared side effects. Shared-workspace implementation remains serial by default. Tester and Reviewer may run concurrently after a stable change only when their commands do not contend for caches, generated artifacts, data, or environment state. Parallelism shortens the critical path; it does not increase the investigation budget.
+
+## Cost-first, risk-based workflow
+
+- **Tool-free:** Leader handles conversation, intent alignment, synthesis, and acceptance.
+- **Read-only investigation:** Analyzer gathers focused workspace facts.
+- **Routine change:** Implementer performs the smallest sufficient change and narrowest direct self-check. Tester or Reviewer is added only when it materially improves confidence.
+- **High risk:** deletion, dependencies or lockfiles, configuration or secrets, migrations or persistent data writes, external services or deployment, permissions/security boundaries, cross-module unknown impact, or difficult rollback requires an explicit plan and user confirmation. Independent Tester and Reviewer PASS are mandatory afterward.
+
+Verification is evidence-triggered: direct behavior and diff, then a targeted check, then module or broad validation only when shared impact, a direct failure, concrete contract risk, or the confirmed plan requires it.
+
+If the worker model is unavailable or repeatedly inadequate, Leader stops and asks for a replacement model or asks the user to leave this mode. It never takes over implementation tools. Requests requiring tools absent from every worker also leave this mode.
 
 ## Requirements
 
@@ -34,13 +48,13 @@ Arbiter inherits the current Leader model in an isolated subagent invocation. It
 
 ## Install
 
-### macOS / Linux
+macOS/Linux:
 
 ```bash
 ./install.sh
 ```
 
-### Windows PowerShell
+Windows PowerShell:
 
 ```powershell
 Set-ExecutionPolicy -Scope Process Bypass
@@ -53,46 +67,18 @@ Optional explicit worker model:
 ./install.sh --model "DeepSeek-V4-Flash (gcmp.deepseek)"
 ```
 
-```powershell
-.\install.ps1 -Model "DeepSeek-V4-Flash (gcmp.deepseek)"
-```
-
-Existing files with the same names and every modified VS Code `settings.json` are backed up before changes are applied.
-The installer normalizes modified JSONC settings to standard JSON; comments are preserved in the backup, not in the rewritten file.
-
-After installation, reload VS Code and select **Leader** from the agent picker. VS Code Stable does not currently expose a supported setting for automatically making a custom agent the default, so this final selection is manual.
-
-## Cost-first, risk-based workflow
-
-Leader selects the smallest worker workflow that is sufficient for the task:
-
-- **Tool-free:** Leader handles conversation, clarification, synthesis, and acceptance directly.
-- **Read-only investigation:** Analyzer inspects workspace facts.
-- **Low risk or routine change:** Implementer investigates, changes, and self-verifies in one focused invocation when practical. Tester and Reviewer are added only when they materially improve confidence.
-- **High risk:** an explicit plan and user confirmation before changes involving deletion, dependencies or lockfiles, configuration or secrets, migrations or data writes, external services or deployment, permissions or security boundaries, unclear scope, or difficult rollback. Independent Tester and Reviewer PASS are mandatory after implementation.
-
-If the configured worker model is unavailable or inadequate, Leader stops and asks for an explicit replacement worker model or asks the user to leave this mode. It never silently takes over tool-using work with the current high-cost model.
-
-This cost boundary intentionally narrows the mode's capabilities: the bundled workers cover workspace analysis, implementation, testing, and review. A request that needs a tool not listed by any worker must be handled outside this mode.
-
-`批准执行` is a recommended short form for high-risk confirmation; clear natural-language confirmation is also valid. A high-risk confirmation does not authorize later material expansion.
+Existing managed files and modified VS Code settings are backed up. Upgrading to 0.4.0 removes the previously managed Arbiter agent and retired workflow skills after backing them up. Reload VS Code and select **Leader** after installation. GCMP credentials remain user-managed and are not read or stored.
 
 ## Native limitations
 
-This project uses only VS Code native custom agents, subagents, skills, settings, and hooks. Native VS Code can block known dangerous operations, require confirmation for exact single-file deletion, and require confirmation for GitHub writes. It cannot cryptographically bind a chat confirmation to an exact future edit set. Risk classification and high-risk scope control are therefore protocol-enforced. See [docs/NATIVE_LIMITATIONS.md](docs/NATIVE_LIMITATIONS.md).
+Tool manifests structurally separate Leader decisions from Worker implementation, and Hooks block or confirm known dangerous operations. Intent alignment, semantic boundaries, risk classification, and exact adherence remain prompt protocols; native VS Code cannot bind chat approval to a durable capability token or guarantee provider-side model/credit behavior. See [docs/NATIVE_LIMITATIONS.md](docs/NATIVE_LIMITATIONS.md).
 
 ## Validate
 
-Validate repository templates:
-
 ```bash
 python3 scripts/validate.py
-```
-
-Validate an installed configuration:
-
-```bash
 python3 scripts/validate.py --installed
+python3 -m unittest discover -s tests -v
 ```
 
 ## License
