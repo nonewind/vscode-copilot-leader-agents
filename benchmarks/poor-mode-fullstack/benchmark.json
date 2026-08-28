@@ -1,0 +1,29 @@
+{
+  "id": "poor-mode-fullstack",
+  "version": "1.0.0",
+  "title": "穷鬼模式全栈能力基准",
+  "time_limit_minutes": 45,
+  "recommended_runs_per_model": 3,
+  "candidate_root": "candidate",
+  "protected_globs": [
+    "TASK.md",
+    "CONTRACT.md",
+    "backend/tests/**",
+    "frontend/tests/**",
+    "frontend/package.json"
+  ],
+  "score_weights": {
+    "correctness": 70,
+    "engineering": 10,
+    "efficiency": 10,
+    "integrity": 10
+  },
+  "efficiency_targets": {
+    "excellent_minutes": 20,
+    "limit_minutes": 45,
+    "excellent_tool_actions": 18,
+    "limit_tool_actions": 55,
+    "excellent_worker_calls": 1,
+    "limit_worker_calls": 2
+  }
+}

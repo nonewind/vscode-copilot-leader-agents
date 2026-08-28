@@ -33,8 +33,16 @@ def matches(patterns: list[str], text: str) -> str | None:
 
 
 def terminal_delete_decision(command: str) -> str | None:
+    """Return `ask` for one parseable deletion plan, otherwise `deny`.
+
+    A Hook approval belongs to one tool invocation.  Consequently a literal
+    `rm` command may name several files or a recursive directory and still
+    receives one confirmation prompt; the Hook never attempts to retain that
+    approval for a later, different command.
+    """
     if not matches([
         r"\b(?:rm|unlink|del|erase|Remove-Item)\b",
+        r"\b(?:rmdir|rd)\b",
         r"\bfind\b[^\n]*\s-delete\b",
         r"\bgit\s+rm\b",
     ], command):
@@ -46,7 +54,6 @@ def terminal_delete_decision(command: str) -> str | None:
     if matches([
         r"\bfind\b[^\n]*\s-delete\b",
         r"\bgit\s+rm\b",
-        r"\b(?:rmdir|rd)\b",
     ], command):
         return "deny"
 
@@ -59,25 +66,42 @@ def terminal_delete_decision(command: str) -> str | None:
 
     program = tokens[0].lower()
     args = tokens[1:]
-    target: str | None = None
+    if program in {"cmd", "cmd.exe"}:
+        if args and args[0].lower() == "/d":
+            args.pop(0)
+        if not args or args.pop(0).lower() != "/c" or not args:
+            return "deny"
+        program = args.pop(0).lower()
+    targets: list[str] = []
 
     if program == "rm":
-        targets: list[str] = []
         for arg in args:
-            if arg in {"--", "-f", "--force"}:
+            if arg in {"--", "-f", "--force", "-r", "-R", "--recursive", "-rf", "-fr", "-rR", "-Rf"}:
                 continue
             if arg.startswith("-"):
                 return "deny"
             targets.append(arg)
-        if len(targets) == 1:
-            target = targets[0]
     elif program == "unlink":
         targets = [arg for arg in args if arg != "--"]
-        if len(targets) == 1 and not targets[0].startswith("-"):
-            target = targets[0]
+        if any(target.startswith("-") for target in targets):
+            return "deny"
+    elif program == "del":
+        for arg in args:
+            if arg.lower() in {"/f", "/q", "/s"}:
+                continue
+            if arg.startswith(("/", "-")):
+                return "deny"
+            targets.append(arg)
+    elif program in {"rmdir", "rd"}:
+        targets = [arg for arg in args if arg not in {"--", "/s", "/q"}]
+        if any(target.startswith("-") for target in targets):
+            return "deny"
 
     shell_expansion_chars = set("*?$`[]{}~!^%&|<>()#")
-    if target and not target.startswith("=") and not any(char in target for char in shell_expansion_chars):
+    if targets and all(
+        not target.startswith("=") and not any(char in target for char in shell_expansion_chars)
+        for target in targets
+    ):
         return "ask"
     return "deny"
 
@@ -113,15 +137,6 @@ def main() -> int:
     hard_deny = [
         r"\bgit\s+(commit|push|pull|merge|rebase|reset|revert|cherry-pick|switch|checkout|clean|stash|tag)\b",
         r"\bgit\s+branch\s+(-d|-D|-m|-M|--delete|--move)\b",
-        r"\brm\b[^\n]*(?:\s-[^\s]*[rR][^\s]*|\s--recursive)\b",
-        r"\b(?:rmdir|rd)\b",
-        r"\bdel\b[^\n]*\s/[^\s]*[sS][^\s]*",
-        r"\bRemove-Item\b[^\n]*-Recurse\b",
-        r"\b(drop|truncate)\s+(table|database|schema)\b",
-        r"\bdelete\s+from\b",
-        r"\bupdate\s+[^\n]+\s+set\b",
-        r"\binsert\s+into\b",
-        r"\balter\s+table\b",
     ]
     hit = matches(hard_deny, combined)
     if hit:
@@ -132,10 +147,10 @@ def main() -> int:
     command = str(tool_input.get("command", "")) if isinstance(tool_input, dict) else ""
     delete_decision = terminal_delete_decision(command)
     if delete_decision == "deny":
-        emit("deny", "Only a standalone, non-recursive deletion command with one literal target is allowed.")
+        emit("deny", "Deletion is allowed only as one standalone command with literal, non-expanded targets.")
         return 0
     if any(name in tool_name for name in delete_tools) or delete_decision == "ask":
-        emit("ask", "Exact single-file deletion requires explicit user confirmation; directory and recursive deletion are prohibited.")
+        emit("ask", "This deletion plan requires one explicit confirmation for the current command; approval does not carry to later commands.")
         return 0
 
     approval_required = [

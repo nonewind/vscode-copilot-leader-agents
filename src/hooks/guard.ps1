@@ -29,16 +29,7 @@ if ($toolName -match '(?i)(^|[./:_-])github([./:_-]|$)') {
 
 $hardDeny = @(
     '\bgit\s+(commit|push|pull|merge|rebase|reset|revert|cherry-pick|switch|checkout|clean|stash|tag)\b',
-    '\bgit\s+branch\s+(-d|-D|-m|-M|--delete|--move)\b',
-    '\brm\b[^\n]*(?:\s-[^\s]*[rR][^\s]*|\s--recursive)\b',
-    '\b(?:rmdir|rd)\b',
-    '\bdel\b[^\n]*\s/[^\s]*[sS][^\s]*',
-    '\bremove-item\b[^\n]*-recurse\b',
-    '\b(drop|truncate)\s+(table|database|schema)\b',
-    '\bdelete\s+from\b',
-    '\bupdate\s+[^\n]+\s+set\b',
-    '\binsert\s+into\b',
-    '\balter\s+table\b'
+    '\bgit\s+branch\s+(-d|-D|-m|-M|--delete|--move)\b'
 )
 foreach ($pattern in $hardDeny) {
     if ($combined -match $pattern) {
@@ -48,15 +39,15 @@ foreach ($pattern in $hardDeny) {
 }
 
 $command = [string]$data.tool_input.command
-$hasDelete = $command -match '(?i)\b(rm|unlink|del|erase|remove-item)\b|\bfind\b[^\n]*\s-delete\b|\bgit\s+rm\b'
-$safeSingleDelete = $command -match '(?i)^\s*cmd(?:\.exe)?\s+/d\s+/c\s+del\s+(?:(?:/[fq])\s+)*(?:"[^"%!^&|<>()*?`$\[\]{}~#=]+"|[^\s"%!^&|<>()*?`$\[\]{}~#=]+)\s*$'
-if ($hasDelete -and (-not $safeSingleDelete -or $command -match '(?:&&|[;&|><])')) {
-    Emit-Decision "deny" "Only a standalone, non-recursive deletion command with one literal target is allowed."
+$hasDelete = $command -match '(?i)\b(rm|unlink|del|erase|remove-item|rmdir|rd)\b|\bfind\b[^\n]*\s-delete\b|\bgit\s+rm\b'
+$safeDelete = $command -match '(?i)^\s*(?:(?:cmd(?:\.exe)?\s+(?:/d\s+)?/c\s+)?del\s+(?:(?:/[fqs])\s+)*(?:"[^"%!^&|<>()*?`$\[\]{}~#=]+"|[^\s"%!^&|<>()*?`$\[\]{}~#=]+)(?:\s+(?:"[^"%!^&|<>()*?`$\[\]{}~#=]+"|[^\s"%!^&|<>()*?`$\[\]{}~#=]+))*|(?:cmd(?:\.exe)?\s+(?:/d\s+)?/c\s+)?(?:rd|rmdir)\s+(?:(?:/[sq])\s+)*(?:"[^"%!^&|<>()*?`$\[\]{}~#=]+"|[^\s"%!^&|<>()*?`$\[\]{}~#=]+)(?:\s+(?:"[^"%!^&|<>()*?`$\[\]{}~#=]+"|[^\s"%!^&|<>()*?`$\[\]{}~#=]+))*|(?:rm|unlink|remove-item)\b[^;&|><*?`$\[\]{}~#=]+)\s*$'
+if ($hasDelete -and (-not $safeDelete -or $command -match '(?:&&|[;&|><])')) {
+    Emit-Decision "deny" "Deletion is allowed only as one standalone command with literal, non-expanded targets."
     exit 0
 }
 
-if ($toolName -match '(?i)delete.?file|remove.?file' -or $safeSingleDelete) {
-    Emit-Decision "ask" "Exact single-file deletion requires explicit user confirmation; directory and recursive deletion are prohibited."
+if ($toolName -match '(?i)delete.?file|remove.?file' -or $safeDelete) {
+    Emit-Decision "ask" "This deletion plan requires one explicit confirmation for the current command; approval does not carry to later commands."
     exit 0
 }
 

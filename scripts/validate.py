@@ -11,9 +11,10 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 WORKERS = ["analyzer", "implementer", "tester", "reviewer"]
-DEFAULT_WORKER_MODEL = "DeepSeek-V4-Flash (Go) (gcmp.opencode)"
+DEFAULT_WORKER_MODEL = "GLM-5.3-Flash (CodingPlan) (gcmp.zhipu)"
+DEFAULT_WORKER_MODEL_SELECTOR_ID = "gcmp.zhipu:::glm-5.3-flash"
 SKILLS = ["leader-orchestration", "cost-control", "quality-gates"]
-LEADER_TOOLS = {"agent", "todo", "read", "search"}
+LEADER_TOOLS = {"vscode/askQuestions", "vscode/memory", "agent", "read", "search", "web"}
 WORKER_TOOLS = {
     "analyzer": {"read", "search"},
     "implementer": {"vscode", "execute", "read", "search", "edit"},
@@ -126,7 +127,7 @@ def validate(installed: bool) -> list[str]:
                 errors.append("Leader subagent allowlist is incorrect")
             if fm.get("user-invocable") is not True:
                 errors.append("Leader must be user-invocable")
-            require_tokens(errors, "Leader control policy", text, ["意图对齐", "`GOAL`", "`BOUNDARIES`", "`DONE`", "`STOP_AND_REPORT`", "NEEDS_LEADER", "不得代替 Analyzer 广泛扫描", worker_model or DEFAULT_WORKER_MODEL, "显式指定该模型", "不得自动发现、静默回退"])
+            require_tokens(errors, "Leader control policy", text, ["意图对齐", "`GOAL`", "`BOUNDARIES`", "`DONE`", "`STOP_AND_REPORT`", "NEEDS_LEADER", "一次直接、无状态的 Worker 调用", "不是 `goal` 命令", "没有 `todo` 工具", "`vscode/memory` 只在用户明确要求记住时", "禁止保存当前任务的 goal", "记忆不能触发调用", "`web` 只用于", "禁止登录、提交、外部写入", "不得代替 Analyzer 广泛扫描", worker_model or DEFAULT_WORKER_MODEL, "显式指定该模型", "低成本执行模型", "机械执行的任务包", "不得声称已设置 `max`", "不得向调用中编造 `reasoningEffort` 字段", "相关文件", "合理处理", "视情况而定", "全面检查", "PUBLIC_TYPESCRIPT_API", "BEHAVIOR_BOUNDARY", "触发项的 `NOT_VERIFIED` 是未满足的 `DONE`", "重试一次", "两次子模型调用均因模型错误失败", "不得自动发现第三方模型"])
         else:
             if fm.get("user-invocable") is not False:
                 errors.append(f"{name} must be hidden")
@@ -136,7 +137,13 @@ def validate(installed: bool) -> list[str]:
                 errors.append(f"{name} tool set is incorrect")
             if "model" in fm:
                 errors.append(f"{name} must not fix its own model")
-            require_tokens(errors, f"{name} execution contract", text, ["GOAL", "BOUNDARIES", "DONE", "STOP_AND_REPORT", "NEEDS_LEADER"])
+            require_tokens(errors, f"{name} execution contract", text, ["GOAL", "BOUNDARIES", "DONE", "STOP_AND_REPORT", "NEEDS_LEADER", "确定且可观察", "逐项验收标准", "不得创建、更新或等待任何 goal/持续任务", "不得自行"])
+            if name == "implementer":
+                require_tokens(errors, "Implementer contract-trigger policy", text, ["PUBLIC_TYPESCRIPT_API", "BEHAVIOR_BOUNDARY", "@ts-ignore"])
+            if name == "tester":
+                require_tokens(errors, "Tester contract-trigger policy", text, ["PUBLIC_TYPESCRIPT_API", "BEHAVIOR_BOUNDARY", "@ts-expect-error", "触发项的 `NOT_VERIFIED` 视为 `FAIL`", "Contract-trigger checks"])
+            if name == "reviewer":
+                require_tokens(errors, "Reviewer contract-trigger policy", text, ["PUBLIC_TYPESCRIPT_API", "BEHAVIOR_BOUNDARY", "@ts-expect-error", "Contract-trigger review"])
 
         if installed and worker_model:
             source = REPO_ROOT / "src/agents" / f"{name}.agent.md"

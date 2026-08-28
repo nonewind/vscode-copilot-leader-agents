@@ -7,25 +7,29 @@ A native VS Code Copilot Chat setup that spends a high-capability Leader model o
 ## Architecture
 
 ```text
-User <-> Leader (current model; agent, todo, bounded read/search)
+User <-> Leader (current model; agent, bounded read/search/web)
            |-- Analyzer     (worker model; read-only investigation)
            |-- Implementer  (worker model; scoped edits and self-checks)
            |-- Tester       (worker model; targeted commands)
            `-- Reviewer     (worker model; diff and risk review)
 ```
 
-Leader has no edit, execute, VS Code operation, browser, GitHub, or external-service tools. Routine workspace work stays on workers. Leader may use `read` and `search` only for a small decisive fact when worker evidence conflicts or is insufficient, preserving the user's full conversation context without a separate arbitration agent.
+Leader has no edit, execute, general VS Code operation, browser, GitHub, todo, or external-write tools. Routine workspace work stays on workers. Leader may use `read` and `search` only for a small decisive source fact when worker evidence conflicts or is insufficient. Its single `web` tool is limited to a bounded public fact or authoritative document unavailable from the workspace; it cannot log in, write externally, or transmit workspace content or credentials. `vscode/askQuestions` is reserved for user decisions that change the result, boundary, or authority. `vscode/memory` may retain only stable preferences or reusable project facts the user explicitly asks to remember; it never stores task state or triggers work.
 
-Leader fixes the default submodel to `DeepSeek-V4-Flash (Go) (gcmp.opencode)` and explicitly specifies it on every Analyzer, Implementer, Tester, or Reviewer invocation. Worker manifests remain model-neutral. If that model is unavailable, Leader stops for a user-selected replacement; it does not discover or silently fall back to another model.
+Leader fixes the default submodel to `GLM-5.3-Flash (CodingPlan) (gcmp.zhipu)` and explicitly specifies it on each initial Analyzer, Implementer, Tester, or Reviewer invocation. Its GCMP catalog model ID is `glm-5.3-flash`; the VS Code selector route is `gcmp.zhipu:::glm-5.3-flash`. On an invocation error or `MODEL_UNAVAILABLE`, it retries that same stateless Worker once with the original brief and checkpoint. If both requests fail for that model reason, Leader invokes the same Worker role without a Worker-model override so it inherits the current Leader model and completes the remaining in-scope task. Worker manifests remain model-neutral. `FAIL`, `BLOCKED`, `NEEDS_LEADER`, and weak results are handled as task evidence, not model retries; no third model is discovered.
 
-Before modification, Leader aligns the user-visible goal and asks one to three concrete questions only when the answer changes the result, boundary, or authority. Each worker receives a concise brief:
+The current VS Code subagent interface does not expose an independent per-subagent reasoning-effort call parameter. Even when the GCMP catalog advertises model reasoning levels, this project does not claim or fabricate a `max` setting. Complex briefs name the exact analysis dimensions, decision rules, and required evidence instead; that is prompt guidance, not a platform reasoning-effort configuration.
 
-- `GOAL`: the result to produce or establish;
-- `BOUNDARIES`: allowed scope, preserved behavior, and non-goals;
-- `DONE`: direct evidence that is sufficient to stop;
+Before modification, Leader aligns the user-visible goal and asks one to three concrete questions only when the answer changes the result, boundary, or authority. Because GLM-5.3-Flash is the low-cost execution model, Leader resolves intent, decomposes the task, and makes key choices before sending each Worker a mechanically executable brief:
+
+- `GOAL`: one concrete, observable result;
+- `BOUNDARIES`: exact paths, symbols, or command scope; known facts; allowed actions; preserved behavior; and non-goals;
+- `DONE`: itemized acceptance criteria and the file diff, target behavior, command, or other direct evidence sufficient to pass each one;
 - `STOP_AND_REPORT`: new choices, expansion, risk, or validation needs that return to Leader.
 
-This is a semantic boundary, not a form or quota. Clear reversible work uses the fast path. Workers stop at the first sufficient evidence, report incidental findings without pursuing them, and return `NEEDS_LEADER` before expanding the task.
+This is a semantic boundary, not a form or quota. A change brief also includes direct evidence of the problem, required behavior, allowed files or symbols, and dependency order when one exists. It never hides scope or quality behind phrases such as “related files,” “fix appropriately,” “as needed,” or “check everything.” If the change location is not yet bounded, Leader first gives Analyzer one bounded fact question. Delegation is one direct stateless Worker invocation: `GOAL` is plain text, not a command or persistent task. Leader has no `todo` tool and must not use memory, other tools, or prose to simulate a persistent Worker lifecycle, polling loop, or automatic reinvocation. Workers stop at the first sufficient evidence, report incidental findings without pursuing them, and return `NEEDS_LEADER` before expanding the task.
+
+For a direct public TypeScript contract change, Leader writes `PUBLIC_TYPESCRIPT_API` into `DONE`: a named isolated type check plus, for changed public exports, an external-consumer compile fixture with positive and `@ts-expect-error` negative cases. For observable empty/missing/nullish/zero/edge/no-data behavior, it writes `BEHAVIOR_BOUNDARY` into `DONE` with only the source-supported boundary rows and expected outcomes. A triggered requirement is not an optional `NOT_VERIFIED` gap: Tester verifies it, and public TypeScript changes also receive a narrow Reviewer check.
 
 Leader may run distinct read-only investigations in parallel when they are independent, non-overlapping, independently composable, and free of shared side effects. Shared-workspace implementation remains serial by default. Tester and Reviewer may run concurrently after a stable change only when their commands do not contend for caches, generated artifacts, data, or environment state. Parallelism shortens the critical path; it does not increase the investigation budget.
 
@@ -36,9 +40,9 @@ Leader may run distinct read-only investigations in parallel when they are indep
 - **Routine change:** Implementer performs the smallest sufficient change and narrowest direct self-check. Tester or Reviewer is added only when it materially improves confidence.
 - **High risk:** deletion, dependencies or lockfiles, configuration or secrets, migrations or persistent data writes, external services or deployment, permissions/security boundaries, cross-module unknown impact, or difficult rollback requires an explicit plan and user confirmation. Independent Tester and Reviewer PASS are mandatory afterward.
 
-Verification is evidence-triggered: direct behavior and diff, then a targeted check, then module or broad validation only when shared impact, a direct failure, concrete contract risk, or the confirmed plan requires it.
+Verification is evidence-triggered: direct behavior and diff, then a targeted check, then module or broad validation only when shared impact, a direct failure, a concrete contract risk, or the confirmed plan requires it. `PUBLIC_TYPESCRIPT_API` and `BEHAVIOR_BOUNDARY` make their named narrow check a concrete contract risk; they do not default to a broad suite. Leader owns validation depth and final acceptance; it stops when direct evidence supports `DONE`, and may continue only for new concrete evidence that directly threatens a named `DONE` item. `NOT_VERIFIED`, theoretical risk, suggested expansion, and incidental findings are reported gaps, not automatic gates. Each task permits at most one targeted rework round and one direct recheck before Leader must accept the supported result or report what remains unsupported.
 
-If the Worker model is unavailable or repeatedly inadequate, Leader stops and asks for a user-selected replacement model or asks the user to leave this mode. It never auto-discovers, silently falls back, or takes over implementation tools. Requests requiring tools absent from every worker also leave this mode.
+The one-task main-model fallback preserves the original brief, boundaries, confirmed authority, and `DONE`; it never gives Leader implementation tools or becomes the default model for later tasks. Native VS Code cannot prove that an unpinned subagent inherits the requested current model, so this route needs a real VS Code smoke test. Requests requiring tools absent from every worker still leave this mode.
 
 ## Requirements
 
@@ -46,7 +50,7 @@ If the Worker model is unavailable or repeatedly inadequate, Leader stops and as
 - GitHub Copilot Chat with local agents enabled
 - Python 3.9 or newer
 - VS Code `code` command on `PATH`
-- GCMP extension (`vicanent.gcmp`); the installer adds it automatically
+- GCMP extension (`vicanent.gcmp`) with a Zhipu catalog that contains `gcmp.zhipu:::glm-5.3-flash`
 
 ## Install
 
@@ -70,6 +74,8 @@ Explicit replacement only when selected by the user:
 ```
 
 Existing managed files and modified VS Code settings are backed up. Upgrading to 0.4.0 removes the previously managed Arbiter agent and retired workflow skills after backing them up. Reload VS Code and select **Leader** after installation. GCMP credentials remain user-managed and are not read or stored.
+
+If GCMP is already installed, run `./install.sh --update-extension` before installation when the selector does not list the default model.
 
 ## Native limitations
 

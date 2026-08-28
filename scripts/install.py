@@ -14,7 +14,8 @@ from pathlib import Path
 from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_WORKER_MODEL = "DeepSeek-V4-Flash (Go) (gcmp.opencode)"
+DEFAULT_WORKER_MODEL = "GLM-5.3-Flash (CodingPlan) (gcmp.zhipu)"
+DEFAULT_WORKER_MODEL_SELECTOR_ID = "gcmp.zhipu:::glm-5.3-flash"
 EXTENSION_ID = "vicanent.gcmp"
 LEGACY_BUILTIN_MODEL_KEYS = (
     "chat.exploreAgent.defaultModel",
@@ -29,6 +30,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Install VS Code Copilot Leader agents globally")
     parser.add_argument("--model", help=f"Explicit replacement Worker model (default: {DEFAULT_WORKER_MODEL})")
     parser.add_argument("--skip-extension", action="store_true", help="Do not install GCMP")
+    parser.add_argument("--update-extension", action="store_true", help="Force-update GCMP so its current model catalog is available")
     parser.add_argument("--dry-run", action="store_true")
     return parser.parse_args()
 
@@ -129,14 +131,18 @@ def ensure_supported_vscode(code: str) -> None:
         raise RuntimeError(f"VS Code Stable 1.128+ is required; detected {first}")
 
 
-def ensure_extension(code: str, dry_run: bool) -> None:
+def ensure_extension(code: str, dry_run: bool, update_extension: bool) -> None:
     result = run([code, "--list-extensions"], check=False)
     installed = {line.strip().lower() for line in result.stdout.splitlines()}
-    if EXTENSION_ID in installed:
+    if EXTENSION_ID in installed and not update_extension:
         return
-    print(f"Installing extension {EXTENSION_ID}...")
+    action = "Updating" if EXTENSION_ID in installed else "Installing"
+    print(f"{action} extension {EXTENSION_ID}...")
     if not dry_run:
-        run([code, "--install-extension", EXTENSION_ID])
+        command = [code, "--install-extension", EXTENSION_ID]
+        if update_extension:
+            command.append("--force")
+        run(command)
 
 
 def backup_item(source: Path, backup_root: Path, dry_run: bool) -> None:
@@ -220,14 +226,20 @@ def main() -> int:
     if sys.version_info < (3, 9):
         raise RuntimeError("Python 3.9 or newer is required")
 
+    model = args.model or DEFAULT_WORKER_MODEL
     code = code_cli()
     ensure_supported_vscode(code)
     if not args.skip_extension:
-        ensure_extension(code, args.dry_run)
+        ensure_extension(code, args.dry_run, args.update_extension)
 
     settings_files = user_settings_files()
-    model = args.model or DEFAULT_WORKER_MODEL
     print(f"Worker model: {model}")
+    if model == DEFAULT_WORKER_MODEL and not args.update_extension:
+        print(
+            "NOTE: GLM-5.3-Flash requires a GCMP release whose Zhipu catalog includes "
+            f"{DEFAULT_WORKER_MODEL_SELECTOR_ID}. If the model is absent from the VS Code "
+            "selector, rerun with --update-extension before installing."
+        )
 
     home = Path.home()
     copilot = home / ".copilot"

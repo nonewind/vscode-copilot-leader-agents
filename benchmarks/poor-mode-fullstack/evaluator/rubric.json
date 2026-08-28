@@ -1,0 +1,57 @@
+{
+  "version": "1.0.0",
+  "correctness_cases": [
+    {"id": "backend.auth_invalid", "runner": "backend", "match": "test_auth_invalid_token_uses_error_contract", "points": 1.0, "hard": false},
+    {"id": "backend.auth_list", "runner": "backend", "match": "test_auth_forbids_listing_", "points": 2.0, "hard": true},
+    {"id": "backend.auth_create", "runner": "backend", "match": "test_auth_forbids_creating_in_another_users_project", "points": 1.5, "hard": true},
+    {"id": "backend.auth_patch", "runner": "backend", "match": "test_auth_forbids_patching_another_users_task", "points": 1.5, "hard": true},
+    {"id": "backend.page_one_based_zero", "runner": "backend", "match": "test_pagination_is_one_based_and_preserves_zero", "points": 1.5, "hard": false},
+    {"id": "backend.page_invalid", "runner": "backend", "match": "test_pagination_rejects_invalid_values", "points": 1.5, "hard": false},
+    {"id": "backend.page_out_of_range", "runner": "backend", "match": "test_pagination_out_of_range_is_empty_with_stable_total", "points": 1.0, "hard": false},
+    {"id": "backend.page_stable_sort", "runner": "backend", "match": "test_pagination_sort_is_stable_when_timestamps_match", "points": 0.5, "hard": false},
+    {"id": "backend.search", "runner": "backend", "match": "test_search_is_case_insensitive_and_trim_safe", "points": 0.5, "hard": false},
+    {"id": "backend.create_validation", "runner": "backend", "match": "test_validation_rejects_bad_create_payloads", "points": 3.0, "hard": false},
+    {"id": "backend.patch_validation", "runner": "backend", "match": "test_validation_rejects_bad_patch_fields", "points": 2.0, "hard": false},
+    {"id": "backend.idempotency_required", "runner": "backend", "match": "test_create_requires_nonempty_idempotency_key", "points": 1.0, "hard": false},
+    {"id": "backend.idempotency_replay", "runner": "backend", "match": "test_idempotency_replays_", "points": 3.0, "hard": true},
+    {"id": "backend.idempotency_conflict", "runner": "backend", "match": "test_idempotency_conflict_does_not_create", "points": 2.0, "hard": true},
+    {"id": "backend.idempotency_scope", "runner": "backend", "match": "test_idempotency_key_is_scoped_by_user_and_project", "points": 1.0, "hard": true},
+    {"id": "backend.concurrency_stale", "runner": "backend", "match": "test_concurrency_stale_version_is_a_non_mutating_conflict", "points": 3.0, "hard": true},
+    {"id": "backend.concurrency_success", "runner": "backend", "match": "test_concurrency_success_increments_exactly_once", "points": 2.0, "hard": true},
+    {"id": "backend.transaction", "runner": "backend", "match": "test_transaction_rolls_back_task_and_key_when_audit_fails", "points": 5.0, "hard": true},
+    {"id": "backend.utc", "runner": "backend", "match": "test_created_timestamp_is_utc_z", "points": 2.0, "hard": false},
+
+    {"id": "frontend.pagination", "runner": "frontend", "match": "[frontend.pagination]", "points": 2.5, "hard": false},
+    {"id": "frontend.boundaries", "runner": "frontend", "match": "[frontend.boundaries]", "points": 2.5, "hard": false},
+    {"id": "frontend.timezone", "runner": "frontend", "match": "[frontend.timezone]", "points": 2.5, "hard": false},
+    {"id": "frontend.race", "runner": "frontend", "match": "[frontend.race]", "points": 4.0, "hard": true},
+    {"id": "frontend.loading", "runner": "frontend", "match": "[frontend.loading]", "points": 2.0, "hard": true},
+    {"id": "frontend.preserve", "runner": "frontend", "match": "[frontend.preserve]", "points": 2.0, "hard": false},
+    {"id": "frontend.rollback", "runner": "frontend", "match": "[frontend.rollback]", "points": 4.0, "hard": true},
+    {"id": "frontend.duplicate_update", "runner": "frontend", "match": "[frontend.duplicate_update]", "points": 2.5, "hard": true},
+    {"id": "frontend.duplicate_create", "runner": "frontend", "match": "[frontend.duplicate_create]", "points": 2.5, "hard": true},
+    {"id": "frontend.idempotency", "runner": "frontend", "match": "[frontend.idempotency]", "points": 1.5, "hard": false},
+    {"id": "frontend.errors", "runner": "frontend", "match": "[frontend.errors]", "points": 4.0, "hard": false},
+
+    {"id": "integration.text_rendering", "runner": "static", "match": "text_rendering", "points": 2.0, "hard": true},
+    {"id": "integration.stable_key", "runner": "static", "match": "stable_key", "points": 1.0, "hard": false},
+    {"id": "integration.create_disabled", "runner": "static", "match": "create_disabled", "points": 1.0, "hard": false},
+    {"id": "integration.update_disabled", "runner": "static", "match": "update_disabled", "points": 1.0, "hard": false}
+  ],
+  "engineering": {
+    "typecheck_points": 3,
+    "review_points": 7,
+    "review_dimensions": {
+      "direct_and_cohesive_logic": 2,
+      "meaningful_added_tests": 3,
+      "scope_control": 1,
+      "clarity": 1
+    }
+  },
+  "integrity": {
+    "protected_files": 5,
+    "no_forbidden_artifacts": 2,
+    "truthful_evidence": 3,
+    "score_cap_on_protected_change": 59
+  }
+}

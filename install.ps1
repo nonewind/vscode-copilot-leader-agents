@@ -1,6 +1,7 @@
 param(
     [string]$Model,
     [switch]$SkipExtension,
+    [switch]$UpdateExtension,
     [switch]$DryRun
 )
 
@@ -19,6 +20,7 @@ if (Get-Command py -ErrorAction SilentlyContinue) {
 $argsList = @("$ScriptDir\scripts\install.py")
 if ($Model) { $argsList += @("--model", $Model) }
 if ($SkipExtension) { $argsList += "--skip-extension" }
+if ($UpdateExtension) { $argsList += "--update-extension" }
 if ($DryRun) { $argsList += "--dry-run" }
 
 if ($python.Count -eq 2) {
