@@ -22,13 +22,15 @@ Workers are hidden, have no `agent` tool, and cannot create nested subagents. Im
 REQUEST
   -> LEADER_INTENT_ALIGNMENT
       -> RESULT_CHANGING_AMBIGUITY -> USER_QUESTION -> INTENT_ALIGNMENT
-      -> CLEAR_ANALYSIS -> DEPENDENCY_CHECK
-          -> INDEPENDENT_READS -> ANALYZER_A || ANALYZER_B || ANALYZER_C -> LEADER_DECISION
-          -> DEPENDENT_READS -> SERIAL_ANALYZER -> LEADER_DECISION
-          -> CLEAR_CHANGE -> WORKER_BRIEF
+      -> TASK_TOPOLOGY_GATE
+          -> SIMPLE_TASK -> ONE_WORKER_PACKAGE
+          -> COMPOUND_TASK -> DEPENDENCY_ORDERED_WAVES
+              -> WAVE_1 -> PACKAGE_A || PACKAGE_B || PACKAGE_C -> WAVE_BARRIER
+              -> WAVE_2 -> PACKAGE_D || PACKAGE_E -> WAVE_BARRIER
+          -> EACH_PACKAGE -> WORKER_BRIEF
           -> WORKER_MODEL_ERROR -> SAME_WORKER_RETRY_ONCE -> MAIN_MODEL_SAME_WORKER_ROLE
-          -> ROUTINE -> IMPLEMENTER -> NARROW_SELF_CHECK -> LEADER_ACCEPTANCE
-          -> HIGH_RISK -> USER_CONFIRMATION -> IMPLEMENTER -> TESTER || REVIEWER -> LEADER_ACCEPTANCE
+          -> ROUTINE -> IMPLEMENTER_PACKAGE(S) -> NARROW_SELF_CHECK -> LEADER_ACCEPTANCE
+          -> HIGH_RISK -> USER_CONFIRMATION -> IMPLEMENTER_PACKAGE(S) -> TESTER || REVIEWER -> LEADER_ACCEPTANCE
           -> NEEDS_LEADER
               -> DIRECT_THREAT_TO_DONE -> ONE_TARGETED_REWORK -> ONE_DIRECT_RECHECK -> LEADER_ACCEPTANCE_OR_REPORT
               -> GAP_ONLY -> LEADER_ACCEPTANCE_OR_REPORT
@@ -42,13 +44,17 @@ Every Worker brief states:
 - `DONE`: itemized acceptance criteria and sufficient direct evidence for each;
 - `STOP_AND_REPORT`: conditions that return control to Leader.
 
-The brief is semantic and proportional, not a fixed field budget. GLM-5.3-Flash is treated as a low-cost executor: Leader resolves intent, decomposes work, and makes key choices before delegation. A change brief includes direct problem evidence, required behavior, exact allowed files or symbols, preserved behavior, non-goals, itemized evidence for every `DONE` item, and dependency order when one exists. For a changed consumer-visible TypeScript export/type/signature, Leader declares `PUBLIC_TYPESCRIPT_API` in `DONE` with named compiler evidence and a positive/negative external-consumer fixture. For a changed observable data or branch boundary, it declares `BEHAVIOR_BOUNDARY` with only source-supported boundary rows and expected results. Triggered items are mandatory narrow contract gates, not optional `NOT_VERIFIED` gaps or broad-suite triggers. Open phrases such as “related files,” “fix appropriately,” “as needed,” or “check everything” are not valid boundaries. Delegation is one direct stateless invocation. `GOAL` is a plain-text field, not a goal command or persistent task. Leader has no `todo` tool and must not use memory, other tools, or prose to simulate a Worker lifecycle, polling loop, or automatic reinvocation. Workers stop at `DONE`, do not pursue incidental findings, and return `NEEDS_LEADER` before a new product choice, boundary expansion, high-risk action, or materially deeper validation.
+The brief is semantic and proportional, not a fixed field budget. GLM-5.3-Flash is treated as a low-cost executor: Leader resolves intent, task topology, package boundaries, and key choices before delegation. The topology gate permits one Worker only for one observable result, one bounded work surface, and one independent acceptance chain. Compound work is split into dependency-ordered stage waves and independently acceptable packages; independently acceptable packages cannot be collapsed into one large `GOAL`.
+
+A change brief includes direct problem evidence, required behavior, exact allowed files or symbols, preserved behavior, non-goals, itemized evidence for every `DONE` item, and dependency order when one exists. For a changed consumer-visible TypeScript export/type/signature, Leader declares `PUBLIC_TYPESCRIPT_API` in `DONE` with named compiler evidence and a positive/negative external-consumer fixture. For a changed observable data or branch boundary, it declares `BEHAVIOR_BOUNDARY` with only source-supported boundary rows and expected results. Triggered items are mandatory narrow contract gates, not optional `NOT_VERIFIED` gaps or broad-suite triggers. Open phrases such as “related files,” “fix appropriately,” “as needed,” or “check everything” are not valid boundaries. Each package is one direct stateless invocation. `GOAL` is a plain-text field, not a goal command or persistent task. Leader has no `todo` tool and must not use memory, other tools, or prose to simulate a Worker lifecycle, polling loop, or automatic reinvocation. A later invocation must be a predeclared dependency-ready package or evidence-triggered rework for a named unmet `DONE` item. Workers stop at `DONE`, do not pursue incidental findings, and return `NEEDS_LEADER` before a new product choice, boundary expansion, high-risk action, or materially deeper validation.
+
+Workers provide a second protocol guard: when one brief contains two or more independently acceptable packages that can be separated without a dependency, they return `NEEDS_LEADER` and request explicit package boundaries instead of silently completing the oversized assignment serially.
 
 ## Parallelism
 
-The workflow is a parallel-read, serial-write funnel. Leader may fan out distinct read-only questions when they have no output dependency, use non-overlapping boundaries, can be synthesized independently, and create no shared side effects. Each Analyzer answers one question; parallelism never authorizes duplicate broad scans.
+The workflow is a dependency-wave graph, not a parallel-read/serial-write funnel. Leader fans out distinct read-only questions when they have no output dependency, use non-overlapping boundaries, can be synthesized independently, and create no shared side effects. Each Analyzer answers one question; parallelism never authorizes duplicate broad scans.
 
-Implementation stays serial in the shared workspace by default. Tester and Reviewer may run concurrently after the diff is stable only when their commands do not contend for caches, generated artifacts, data, or environment state. Parallelism exists to shorten the critical path, not to increase total work.
+Multiple Implementers run concurrently when their exact file ownership, public contracts, generated artifacts, and command side effects do not overlap. A conflict moves the affected package to a later wave or a bounded integration package; it does not justify assigning all compound work to one Worker. Tester, Reviewer, and other independent validation packages run concurrently after an implementation wave is stable when their commands do not contend for caches, generated artifacts, data, or environment state. Any serial decision must name the concrete dependency or conflict. Parallelism exists to shorten the critical path, not to increase total work.
 
 ## Decision ownership
 

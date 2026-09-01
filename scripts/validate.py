@@ -127,7 +127,9 @@ def validate(installed: bool) -> list[str]:
                 errors.append("Leader subagent allowlist is incorrect")
             if fm.get("user-invocable") is not True:
                 errors.append("Leader must be user-invocable")
-            require_tokens(errors, "Leader control policy", text, ["意图对齐", "`GOAL`", "`BOUNDARIES`", "`DONE`", "`STOP_AND_REPORT`", "NEEDS_LEADER", "一次直接、无状态的 Worker 调用", "不是 `goal` 命令", "没有 `todo` 工具", "`vscode/memory` 只在用户明确要求记住时", "禁止保存当前任务的 goal", "记忆不能触发调用", "`web` 只用于", "禁止登录、提交、外部写入", "不得代替 Analyzer 广泛扫描", worker_model or DEFAULT_WORKER_MODEL, "显式指定该模型", "低成本执行模型", "机械执行的任务包", "不得声称已设置 `max`", "不得向调用中编造 `reasoningEffort` 字段", "相关文件", "合理处理", "视情况而定", "全面检查", "PUBLIC_TYPESCRIPT_API", "BEHAVIOR_BOUNDARY", "触发项的 `NOT_VERIFIED` 是未满足的 `DONE`", "重试一次", "两次子模型调用均因模型错误失败", "不得自动发现第三方模型"])
+            require_tokens(errors, "Leader control policy", text, ["意图对齐", "`GOAL`", "`BOUNDARIES`", "`DONE`", "`STOP_AND_REPORT`", "NEEDS_LEADER", "一次直接、无状态的 Worker 调用", "不是 `goal` 命令", "没有 `todo` 工具", "`vscode/memory` 只在用户明确要求记住时", "禁止保存当前任务的 goal", "记忆不能触发调用", "`web` 只用于", "禁止登录、提交、外部写入", "不得代替 Analyzer 广泛扫描", worker_model or DEFAULT_WORKER_MODEL, "显式指定该模型", "低成本执行模型", "机械执行的任务包", "不得声称已设置 `max`", "不得向调用中编造 `reasoningEffort` 字段", "相关文件", "合理处理", "视情况而定", "全面检查", "PUBLIC_TYPESCRIPT_API", "BEHAVIOR_BOUNDARY", "触发项的 `NOT_VERIFIED` 是未满足的 `DONE`", "重试一次", "两次子模型调用均因模型错误失败", "不得自动发现第三方模型", "### 任务拓扑门", "单 Worker 快速通道", "两个及以上可独立验收", "阶段波次", "禁止把它们合并给同一个 Worker", "默认采用最大安全并行度", "多个 Implementer", "不需要用户额外提出并行要求", "预先声明"])
+            if "修改默认串行" in text:
+                errors.append("Leader control policy still defaults implementation to serial")
         else:
             if fm.get("user-invocable") is not False:
                 errors.append(f"{name} must be hidden")
@@ -137,7 +139,7 @@ def validate(installed: bool) -> list[str]:
                 errors.append(f"{name} tool set is incorrect")
             if "model" in fm:
                 errors.append(f"{name} must not fix its own model")
-            require_tokens(errors, f"{name} execution contract", text, ["GOAL", "BOUNDARIES", "DONE", "STOP_AND_REPORT", "NEEDS_LEADER", "确定且可观察", "逐项验收标准", "不得创建、更新或等待任何 goal/持续任务", "不得自行"])
+            require_tokens(errors, f"{name} execution contract", text, ["GOAL", "BOUNDARIES", "DONE", "STOP_AND_REPORT", "NEEDS_LEADER", "确定且可观察", "逐项验收标准", "两个及以上可独立验收", "要求 Leader 拆", "不得创建、更新或等待任何 goal/持续任务", "不得自行"])
             if name == "implementer":
                 require_tokens(errors, "Implementer contract-trigger policy", text, ["PUBLIC_TYPESCRIPT_API", "BEHAVIOR_BOUNDARY", "@ts-ignore"])
             if name == "tester":
@@ -157,9 +159,17 @@ def validate(installed: bool) -> list[str]:
         path = skills / skill_name / "SKILL.md"
         if not path.exists():
             errors.append(f"Missing skill: {path}")
-        elif installed:
+            continue
+        text = path.read_text(encoding="utf-8")
+        if skill_name == "leader-orchestration":
+            require_tokens(errors, "Leader orchestration topology policy", text, ["task-topology gate", "dependency-ordered stage waves", "must not merge them into one large Worker assignment", "parallel wave", "Multiple Implementers may run concurrently", "predeclared next-wave package"])
+            if "Keep shared-workspace modification serial" in text:
+                errors.append("Leader orchestration still defaults shared-workspace modification to serial")
+        elif skill_name == "cost-control":
+            require_tokens(errors, "Cost-control topology policy", text, ["task-topology gate", "launch all dependency-ready packages", "Never merge two independently acceptable packages", "Multiple Implementers should run concurrently"])
+        if installed:
             source = REPO_ROOT / "src/skills" / skill_name / "SKILL.md"
-            if path.read_text(encoding="utf-8") != source.read_text(encoding="utf-8"):
+            if text != source.read_text(encoding="utf-8"):
                 errors.append(f"Installed skill differs from template: {path}")
 
     if installed:

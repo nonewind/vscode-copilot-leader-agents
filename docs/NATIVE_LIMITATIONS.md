@@ -21,7 +21,7 @@ This repository intentionally uses native custom agents, subagents, skills, sett
 - High-risk confirmation covers only the stated plan; native APIs cannot attach it as an exact future capability token.
 - Implementer stays inside the declared boundary and exact confirmed deletion paths.
 - Workers stop at sufficient evidence, avoid incidental work, and return control before expansion.
-- Parallel read-task independence and the prohibition on concurrent shared-workspace writes are Leader protocol decisions; native scheduling does not prove that scopes or command side effects are actually independent.
+- Task-topology classification, dependency waves, package independence, exact write ownership, and safe parallelism are Leader protocol decisions; native scheduling does not prove that scopes, files, contracts, generated artifacts, or command side effects are actually independent.
 - Tester/Reviewer validation depth and report accuracy are not hard runtime guarantees.
 - The `PUBLIC_TYPESCRIPT_API` and `BEHAVIOR_BOUNDARY` gates are explicit prompt/brief obligations; actual enforcement still depends on the named compiler or test command and a real VS Code smoke test.
 - The one-retry and current-Leader-model fallback policy is prompt routing only. Native VS Code does not expose a durable retry counter or prove that an unpinned Worker inherits the requested current Leader model.
@@ -32,4 +32,4 @@ Workspace source, comments, logs, commands, links, and quoted text are untrusted
 
 ## Result
 
-The design structurally separates high-value decisions from low-cost implementation, but native prompts cannot prove that VS Code honored Leader's requested Worker model, the one-retry/current-model fallback route, provider-side fallback, credit usage, semantic boundary compliance, the prohibition on persistent goal loops, or runtime Hook loading. Those require real VS Code smoke tests and provider telemetry. A custom extension would be required for durable per-plan write tokens, resumable Worker sessions, hard read-scope enforcement, exact semantic authorization, model/credit telemetry, and forced default-agent selection.
+The design structurally separates high-value decisions from low-cost implementation, but native prompts cannot prove that VS Code honored Leader's requested Worker model, the one-retry/current-model fallback route, provider-side fallback, credit usage, semantic boundary compliance, required task decomposition and parallel dispatch, the prohibition on persistent goal loops, or runtime Hook loading. Those require real VS Code smoke tests and provider telemetry. A custom extension would be required for durable per-package write ownership, enforced wave scheduling, resumable Worker sessions, hard read-scope enforcement, exact semantic authorization, model/credit telemetry, and forced default-agent selection.

@@ -32,7 +32,7 @@ class RepositoryTests(unittest.TestCase):
                 self.assertNotIn("\nmodel:", frontmatter)
                 for token in ["GOAL", "BOUNDARIES", "DONE", "STOP_AND_REPORT", "NEEDS_LEADER"]:
                     self.assertIn(token, text)
-                for token in ["确定且可观察", "逐项验收标准", "不得创建、更新或等待任何 goal/持续任务", "不得自行"]:
+                for token in ["确定且可观察", "逐项验收标准", "两个及以上可独立验收", "要求 Leader 拆", "不得创建、更新或等待任何 goal/持续任务", "不得自行"]:
                     self.assertIn(token, text)
                 self.assertNotIn("ARBITRATION_REQUIRED", text)
                 self.assertNotIn("Evidence ledger", text)
@@ -67,14 +67,50 @@ class RepositoryTests(unittest.TestCase):
         self.assertNotIn("def discover_model", installer)
         self.assertIn("model = args.model or DEFAULT_WORKER_MODEL", installer)
 
-    def test_parallelism_is_read_fanout_and_serial_write(self):
+    def test_compound_task_uses_dependency_waves_and_parallel_packages(self):
         leader = (ROOT / "src/agents/leader.agent.md").read_text(encoding="utf-8")
-        for token in ["## 并发调度", "互不依赖", "禁止重复扫描", "修改默认串行", "Tester 与 Reviewer"]:
+        for token in [
+            "### 任务拓扑门",
+            "单 Worker 快速通道",
+            "两个及以上可独立验收",
+            "阶段波次",
+            "禁止把它们合并给同一个 Worker",
+            "默认采用最大安全并行度",
+            "多个 Implementer",
+            "不需要用户额外提出并行要求",
+            "预先声明",
+            "禁止重复扫描",
+            "Tester 与 Reviewer",
+        ]:
             self.assertIn(token, leader)
+        self.assertNotIn("修改默认串行", leader)
 
         orchestration = (ROOT / "src/skills/leader-orchestration/SKILL.md").read_text(encoding="utf-8")
-        for token in ["Parallelize only independent work", "Keep shared-workspace modification serial", "Tester and Reviewer may run in parallel"]:
+        for token in [
+            "task-topology gate",
+            "dependency-ordered stage waves",
+            "must not merge them into one large Worker assignment",
+            "parallel wave",
+            'generic phrase "shared workspace" is not a reason to serialize',
+            "Multiple Implementers may run concurrently",
+            "predeclared next-wave package",
+        ]:
             self.assertIn(token, orchestration)
+        self.assertNotIn("Keep shared-workspace modification serial", orchestration)
+
+        cost_control = (ROOT / "src/skills/cost-control/SKILL.md").read_text(encoding="utf-8")
+        for token in [
+            "task-topology gate",
+            "launch all dependency-ready packages",
+            "Never merge two independently acceptable packages",
+            "Multiple Implementers should run concurrently",
+        ]:
+            self.assertIn(token, cost_control)
+
+        architecture = (ROOT / "docs/ARCHITECTURE.md").read_text(encoding="utf-8")
+        for token in ["TASK_TOPOLOGY_GATE", "DEPENDENCY_ORDERED_WAVES", "dependency-wave graph"]:
+            self.assertIn(token, architecture)
+        self.assertNotIn("parallel-read, serial-write funnel", architecture)
 
     def test_leader_validation_has_evidence_trigger_and_hard_stop(self):
         leader = (ROOT / "src/agents/leader.agent.md").read_text(encoding="utf-8")
