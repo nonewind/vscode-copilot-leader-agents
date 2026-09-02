@@ -1,7 +1,9 @@
 import io
 import json
+import re
 import subprocess
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -9,6 +11,154 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class RepositoryTests(unittest.TestCase):
+    def test_zcode_plugin_has_bounded_workers_and_leader_protocol(self):
+        zcode = ROOT / "zcode"
+        plugin = zcode / "plugins/leader-worker"
+        manifest = json.loads((plugin / ".zcode-plugin/plugin.json").read_text(encoding="utf-8"))
+        marketplace = json.loads((zcode / "marketplace.json").read_text(encoding="utf-8"))
+        self.assertEqual(manifest["name"], "leader-worker")
+        self.assertEqual(manifest["version"], (ROOT / "VERSION").read_text(encoding="utf-8").strip())
+        self.assertEqual(marketplace["plugins"][0]["source"], "./leader-worker")
+
+        expected_tools = {
+            "analyzer": {"Read", "Grep", "Glob", "WebFetch", "WebSearch"},
+            "implementer": {"Read", "Grep", "Glob", "Bash", "Edit", "Write"},
+            "tester": {"Read", "Grep", "Glob", "Bash"},
+            "reviewer": {"Read", "Grep", "Glob", "Bash"},
+        }
+        for name, tools in expected_tools.items():
+            text = (plugin / f"agents/leader-{name}.md").read_text(encoding="utf-8")
+            frontmatter = text.split("---", 2)[1]
+            for tool in tools:
+                self.assertIn(tool, frontmatter)
+            for token in ["GOAL", "BOUNDARIES", "DONE", "STOP_AND_REPORT", "NEEDS_LEADER", "stateless invocation", "never invoke another subagent"]:
+                self.assertIn(token, text)
+
+        leader = (zcode / "AGENTS.md").read_text(encoding="utf-8")
+        for token in ["primary ZCode Agent is the Leader", "task-topology gate", "Goal Mode", "structurally denies", "routing instruction", "one-line edit"]:
+            self.assertIn(token, leader)
+
+        skill = (plugin / "skills/leader-worker-mode/SKILL.md").read_text(encoding="utf-8")
+        for token in ["every repository task", "structurally denies", "Delegate by default"]:
+            self.assertIn(token, skill)
+
+    def run_zcode_guard(self, payload):
+        guard = ROOT / "zcode/plugins/leader-worker/hooks/guard.py"
+        result = subprocess.run(
+            [sys.executable, str(guard)],
+            input=json.dumps(payload),
+            text=True,
+            capture_output=True,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        return json.loads(result.stdout)
+
+    def test_zcode_guard_denies_primary_agent_execution_when_mode_is_marked(self):
+        with tempfile.TemporaryDirectory() as temp:
+            marked = Path(temp)
+            (marked / "AGENTS.md").write_text(
+                "<!-- leader-worker-agents:start -->\n# Leader/Worker mode for ZCode\n", encoding="utf-8"
+            )
+            for tool_name, tool_input in [
+                ("Bash", {"command": "git status"}),
+                ("Edit", {"file_path": "a.py", "old_string": "x", "new_string": "y"}),
+                ("Write", {"file_path": "a.py", "content": "x"}),
+                ("mcp__node_repl__js", {"code": "1"}),
+            ]:
+                with self.subTest(tool=tool_name):
+                    output = self.run_zcode_guard({
+                        "tool_name": tool_name,
+                        "tool_input": tool_input,
+                        "cwd": str(marked),
+                    })
+                    self.assertEqual(output["hookSpecificOutput"]["permissionDecision"], "deny")
+
+    def test_zcode_guard_detects_mode_from_manual_agents_md_copy(self):
+        with tempfile.TemporaryDirectory() as temp:
+            marked = Path(temp)
+            (marked / "AGENTS.md").write_text("# Leader/Worker mode for ZCode\n", encoding="utf-8")
+            nested = marked / "nested" / "deeper"
+            nested.mkdir(parents=True)
+            output = self.run_zcode_guard({
+                "tool_name": "Bash",
+                "tool_input": {"command": "echo hi"},
+                "cwd": str(nested),
+            })
+            self.assertEqual(output["hookSpecificOutput"]["permissionDecision"], "deny")
+
+    def test_zcode_guard_keeps_previous_behavior_without_mode_marker(self):
+        git_write = "git " + "commit -am test"
+        dep_install = "pnpm " + "install"
+        with tempfile.TemporaryDirectory() as temp:
+            for command, decision in [(git_write, "deny"), (dep_install, "ask")]:
+                with self.subTest(command=command):
+                    output = self.run_zcode_guard({
+                        "tool_name": "Bash",
+                        "tool_input": {"command": command},
+                        "cwd": temp,
+                    })
+                    self.assertEqual(output["hookSpecificOutput"]["permissionDecision"], decision)
+            for tool_name, tool_input in [
+                ("Bash", {"command": "git status"}),
+                ("Edit", {"file_path": "a.py", "old_string": "x", "new_string": "y"}),
+            ]:
+                with self.subTest(tool=tool_name):
+                    output = self.run_zcode_guard({
+                        "tool_name": tool_name,
+                        "tool_input": tool_input,
+                        "cwd": temp,
+                    })
+                    self.assertTrue(output["continue"], json.dumps(output))
+
+    def test_zcode_guard_blocks_git_write_and_prompts_for_install(self):
+        guard = ROOT / "zcode/plugins/leader-worker/hooks/guard.py"
+        for command, decision in [("git commit -am test", "deny"), ("pnpm install", "ask")]:
+            result = subprocess.run(
+                [sys.executable, str(guard)],
+                input=json.dumps({"tool_name": "Bash", "tool_input": {"command": command}}),
+                text=True,
+                capture_output=True,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(json.loads(result.stdout)["hookSpecificOutput"]["permissionDecision"], decision)
+
+    def test_zcode_installer_stages_portable_marketplace_and_merges_policy(self):
+        with tempfile.TemporaryDirectory() as temp:
+            temp_root = Path(temp)
+            marketplace = temp_root / "marketplace"
+            project = temp_root / "project"
+            project.mkdir()
+            agents = project / "AGENTS.md"
+            agents.write_text("# Existing project rules\n", encoding="utf-8")
+            command = [
+                sys.executable,
+                str(ROOT / "scripts/install_zcode.py"),
+                "--marketplace-dir", str(marketplace),
+                "--project", str(project),
+            ]
+            first = subprocess.run(command, text=True, capture_output=True)
+            self.assertEqual(first.returncode, 0, first.stdout + first.stderr)
+            staged = json.loads((marketplace / "marketplace.json").read_text(encoding="utf-8"))
+            self.assertEqual(staged["plugins"][0]["source"], "./leader-worker")
+            text = agents.read_text(encoding="utf-8")
+            self.assertIn("# Existing project rules", text)
+            self.assertEqual(text.count("<!-- leader-worker-agents:start -->"), 1)
+            self.assertTrue((marketplace / "plugins/leader-worker/.zcode-plugin/plugin.json").exists())
+
+            second = subprocess.run(command, text=True, capture_output=True)
+            self.assertEqual(second.returncode, 0, second.stdout + second.stderr)
+            self.assertEqual(agents.read_text(encoding="utf-8").count("<!-- leader-worker-agents:start -->"), 1)
+
+    def test_zcode_sources_do_not_contain_machine_local_paths(self):
+        paths = [ROOT / "marketplace.json", *(ROOT / "zcode").rglob("*")]
+        patterns = [r"/Users/[^/]+/", r"[A-Za-z]:\\Users\\[^\\]+\\", r"\.zcode/cli/plugins/cache", r"sess_[0-9a-f-]{8,}"]
+        for path in paths:
+            if not path.is_file():
+                continue
+            text = path.read_text(encoding="utf-8", errors="ignore")
+            for pattern in patterns:
+                self.assertIsNone(re.search(pattern, text, re.IGNORECASE), str(path))
+
     def test_leader_is_decision_only(self):
         leader = ROOT / "src/agents/leader.agent.md"
         text = leader.read_text(encoding="utf-8")

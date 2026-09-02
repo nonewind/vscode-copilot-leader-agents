@@ -1,6 +1,6 @@
 # VS Code Copilot Leader Agents
 
-A native VS Code Copilot Chat setup that spends a high-capability Leader model on user intent, key decisions, narrow fact checks, orchestration, and acceptance while a configured low-cost model performs workspace investigation, implementation, testing, and review.
+A Leader/Worker setup for VS Code Copilot Chat and ZCode that spends a high-capability Leader model on user intent, key decisions, narrow fact checks, orchestration, and acceptance while a configured low-cost model performs workspace investigation, implementation, testing, and review.
 
 中文文档见 [README.zh-CN.md](README.zh-CN.md)。
 
@@ -56,6 +56,8 @@ The one-task main-model fallback preserves the original brief, boundaries, confi
 
 ## Install
 
+### VS Code Copilot
+
 macOS/Linux:
 
 ```bash
@@ -78,6 +80,10 @@ Explicit replacement only when selected by the user:
 Existing managed files and modified VS Code settings are backed up. Upgrading to 0.4.0 removes the previously managed Arbiter agent and retired workflow skills after backing them up. Reload VS Code and select **Leader** after installation. GCMP credentials remain user-managed and are not read or stored.
 
 If GCMP is already installed, run `./install.sh --update-extension` before installation when the selector does not list the default model.
+
+### ZCode
+
+The native ZCode plugin, portable marketplace, Worker definitions, Hook, and primary-Agent instructions live under `zcode/`. Follow [docs/ZCODE.md](docs/ZCODE.md), or stage it locally with `python3 scripts/install_zcode.py --project /path/to/project`. ZCode keeps its first-party Agent as the main entry point, so the plugin enforces the Leader's execution boundary with its `PreToolUse` guard: once the workspace `AGENTS.md` carries the Leader/Worker block, the primary Agent's `Edit`, `Write`, `Bash`, and MCP calls are denied with delegation guidance, matching VS Code's structural Leader tool allowlist in effect. Worker boundaries come from each Worker's tool allowlist and brief discipline.
 
 ## Native limitations
 

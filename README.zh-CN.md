@@ -1,6 +1,6 @@
 # VS Code Copilot Leader Agents
 
-这是一套仅依赖 VS Code Stable 与 GitHub Copilot Chat 原生能力的“穷鬼模式”：高能力 Leader 模型负责理解用户、提出关键问题、作出取舍、有限核验决定性事实、调度和验收；固定的低价 Worker 模型负责工作区调查、修改、测试和审查。
+这是一套支持 VS Code Copilot Chat 与 ZCode 的“穷鬼模式”：高能力 Leader 模型负责理解用户、提出关键问题、作出取舍、有限核验决定性事实、调度和验收；固定的低价 Worker 模型负责工作区调查、修改、测试和审查。
 
 ## 架构
 
@@ -58,6 +58,8 @@ Leader把互不依赖、范围不重叠、结果可独立汇总且没有共享�
 
 ## 安装
 
+### VS Code Copilot
+
 macOS/Linux：
 
 ```bash
@@ -80,6 +82,10 @@ Set-ExecutionPolicy -Scope Process Bypass
 安装器会备份所有同名托管文件和被修改的VS Code设置。升级到0.4.0时，会先备份再清除旧版托管的Arbiter和四个已退役流程Skill。安装完成后重载VS Code并选择`Leader`。GCMP凭据由用户自行配置，本项目不会读取或保存。
 
 若已经安装 GCMP，而模型选择器中没有默认模型，请先执行`./install.sh --update-extension`再安装。
+
+### ZCode
+
+ZCode 原生 Plugin、可移植 marketplace、四个 Worker、Hook 与主 Agent 指令位于 `zcode/`。安装和 Smoke 步骤见 [docs/ZCODE.md](docs/ZCODE.md)，也可执行 `python3 scripts/install_zcode.py --project /path/to/project` 生成当前用户自己的安装路径并安全合并项目 `AGENTS.md`。ZCode 仍以第一方 Agent 为主入口，因此由插件 `PreToolUse` 守卫执行 Leader 的执行边界：当工作区 `AGENTS.md` 含有 Leader/Worker 块时，主 Agent 的 `Edit`、`Write`、`Bash` 与 MCP 调用会被拒绝并附带委派指引，效果等同 VS Code 版的结构化 Leader 工具白名单；Worker 边界则由各自工具白名单与简报纪律保证。
 
 ## 原生限制
 

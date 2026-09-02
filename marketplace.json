@@ -1,0 +1,14 @@
+{
+  "name": "leader-worker-agents",
+  "description": "Leader/Worker mode for VS Code Copilot and ZCode",
+  "plugins": [
+    {
+      "name": "leader-worker",
+      "source": "./zcode/plugins/leader-worker",
+      "description": "Cost-first Leader orchestration with bounded Analyzer, Implementer, Tester, and Reviewer subagents",
+      "version": "0.5.0",
+      "category": "Developer Tools",
+      "tags": ["agents", "orchestration", "glm"]
+    }
+  ]
+}

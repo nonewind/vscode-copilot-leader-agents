@@ -28,6 +28,12 @@ OBSOLETE_ITEMS = [
     "scope-arbitration",
     "structured-handoff",
 ]
+ZCODE_WORKER_TOOLS = {
+    "analyzer": {"Read", "Grep", "Glob", "WebFetch", "WebSearch"},
+    "implementer": {"Read", "Grep", "Glob", "Bash", "Edit", "Write"},
+    "tester": {"Read", "Grep", "Glob", "Bash"},
+    "reviewer": {"Read", "Grep", "Glob", "Bash"},
+}
 
 
 def frontmatter(path: Path) -> dict[str, object]:
@@ -77,10 +83,103 @@ def require_tokens(errors: list[str], label: str, text: str, tokens: list[str]) 
             errors.append(f"{label} is missing: {token}")
 
 
+def inline_list(text: str, key: str) -> set[str]:
+    match = re.search(rf"(?m)^{re.escape(key)}:\s*\[([^\]]*)\]\s*$", text)
+    if not match:
+        return set()
+    return {item.strip().strip("'\"") for item in match.group(1).split(",") if item.strip()}
+
+
+def validate_zcode(errors: list[str], source_version: str) -> None:
+    root = REPO_ROOT / "zcode"
+    plugin = root / "plugins/leader-worker"
+    manifest_path = plugin / ".zcode-plugin/plugin.json"
+    marketplace_path = root / "marketplace.json"
+    repository_marketplace_path = REPO_ROOT / "marketplace.json"
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        marketplace = json.loads(marketplace_path.read_text(encoding="utf-8"))
+        repository_marketplace = json.loads(repository_marketplace_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        errors.append(f"Invalid ZCode manifest: {exc}")
+        return
+    if manifest.get("name") != "leader-worker" or manifest.get("version") != source_version:
+        errors.append("ZCode plugin name or version differs from repository VERSION")
+    entries = marketplace.get("plugins", [])
+    if not isinstance(entries, list) or not entries or entries[0].get("source") != "./leader-worker":
+        errors.append("ZCode marketplace does not publish the leader-worker plugin")
+    elif entries[0].get("version") != source_version:
+        errors.append("ZCode marketplace version differs from repository VERSION")
+    repository_entries = repository_marketplace.get("plugins", [])
+    if not isinstance(repository_entries, list) or not repository_entries or repository_entries[0].get("source") != "./zcode/plugins/leader-worker":
+        errors.append("Repository marketplace does not publish the portable ZCode plugin path")
+    elif repository_entries[0].get("version") != source_version:
+        errors.append("Repository marketplace version differs from repository VERSION")
+
+    portable_files = [repository_marketplace_path, marketplace_path]
+    portable_files.extend(path for path in root.rglob("*") if path.is_file())
+    forbidden = [r"/Users/[^/]+/", r"[A-Za-z]:\\Users\\[^\\]+\\", r"\.zcode/cli/plugins/cache", r"sess_[0-9a-f-]{8,}"]
+    for path in portable_files:
+        text = path.read_text(encoding="utf-8", errors="ignore")
+        if any(re.search(pattern, text, re.IGNORECASE) for pattern in forbidden):
+            errors.append(f"ZCode portable source contains machine-local data: {path}")
+
+    agents_dir = plugin / "agents"
+    for name, expected_tools in ZCODE_WORKER_TOOLS.items():
+        path = agents_dir / f"leader-{name}.md"
+        if not path.exists():
+            errors.append(f"Missing ZCode subagent: {path}")
+            continue
+        text = path.read_text(encoding="utf-8")
+        if inline_list(text, "tools") != expected_tools:
+            errors.append(f"ZCode {name} tool set is incorrect")
+        require_tokens(errors, f"ZCode {name} contract", text, [
+            "GOAL", "BOUNDARIES", "DONE", "STOP_AND_REPORT", "NEEDS_LEADER",
+            "stateless invocation", "never invoke another subagent",
+        ])
+        if "model: glm-5.3-flash" not in text or "thoughtLevel: high" not in text:
+            errors.append(f"ZCode {name} model or thought level is incorrect")
+
+    agents_md = (root / "AGENTS.md").read_text(encoding="utf-8")
+    require_tokens(errors, "ZCode Leader protocol", agents_md, [
+        "primary ZCode Agent is the Leader", "task-topology gate", "dependency-ordered stage waves",
+        "`GOAL`", "`BOUNDARIES`", "`DONE`", "`STOP_AND_REPORT`", "Goal Mode",
+        "PUBLIC_TYPESCRIPT_API", "BEHAVIOR_BOUNDARY", "at most one targeted rework round",
+        "structurally denies", "routing instruction", "one-line edit", "instead of reading",
+    ])
+    skill_path = plugin / "skills/leader-worker-mode/SKILL.md"
+    if not skill_path.exists():
+        errors.append(f"Missing ZCode skill: {skill_path}")
+    else:
+        require_tokens(errors, "ZCode leader-worker skill", skill_path.read_text(encoding="utf-8"), [
+            "every repository task", "structurally denies", "Delegate by default", "one `GOAL`",
+        ])
+    hook_path = plugin / "hooks/hooks.json"
+    guard_path = plugin / "hooks/guard.py"
+    try:
+        hook = json.loads(hook_path.read_text(encoding="utf-8"))
+        pre_tool = hook["hooks"]["PreToolUse"][0]
+        matcher = pre_tool.get("matcher", "")
+        if any(token not in matcher for token in ["Bash", "Edit", "Write", "mcp"]) or pre_tool["hooks"][0].get("type") != "process":
+            errors.append("ZCode PreToolUse hook is incorrectly configured")
+    except (OSError, KeyError, IndexError, TypeError, json.JSONDecodeError) as exc:
+        errors.append(f"Invalid ZCode hook config: {exc}")
+    if not guard_path.exists():
+        errors.append(f"Missing ZCode guard: {guard_path}")
+    else:
+        require_tokens(errors, "ZCode guard leader boundary", guard_path.read_text(encoding="utf-8"), [
+            "leader-worker-agents:start", "# Leader/Worker mode for ZCode",
+            "leader-implementer", "leader-tester", "leader-analyzer",
+        ])
+
+
 def validate(installed: bool) -> list[str]:
     errors: list[str] = []
     worker_model: str | None = None
     source_version = (REPO_ROOT / "VERSION").read_text(encoding="utf-8").strip()
+
+    if not installed:
+        validate_zcode(errors, source_version)
 
     if installed:
         agents, skills, hooks, runtime = installed_paths()

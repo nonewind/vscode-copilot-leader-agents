@@ -1,0 +1,15 @@
+{
+  "name": "leader-worker-agents",
+  "description": "Leader/Worker mode for ZCode",
+  "pluginRoot": "plugins",
+  "plugins": [
+    {
+      "name": "leader-worker",
+      "source": "./leader-worker",
+      "description": "Cost-first Leader orchestration with bounded Analyzer, Implementer, Tester, and Reviewer subagents",
+      "version": "0.5.0",
+      "category": "Developer Tools",
+      "tags": ["agents", "orchestration", "glm"]
+    }
+  ]
+}

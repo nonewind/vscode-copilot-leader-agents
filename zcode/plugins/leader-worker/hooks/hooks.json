@@ -1,0 +1,18 @@
+{
+  "description": "Leader/Worker guard for ZCode tool calls: enforces the primary Agent's no-edit/no-terminal boundary while Leader/Worker mode is active and blocks or confirms dangerous operations otherwise",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash|Edit|Write|ApplyPatch|NotebookEdit|mcp__.*",
+        "hooks": [
+          {
+            "type": "process",
+            "command": "python3",
+            "args": ["${ZCODE_PLUGIN_ROOT}/hooks/guard.py"],
+            "timeoutMs": 10000
+          }
+        ]
+      }
+    ]
+  }
+}
