@@ -1,6 +1,6 @@
 # VS Code Copilot Leader Agents
 
-这是一套支持 VS Code Copilot Chat 与 ZCode 的“穷鬼模式”：高能力 Leader 模型负责理解用户、提出关键问题、作出取舍、有限核验决定性事实、调度和验收；固定的低价 Worker 模型负责工作区调查、修改、测试和审查。
+这是一套支持 VS Code Copilot Chat、ZCode 与 Codex 的“穷鬼模式”：高能力 Leader 模型负责理解用户、提出关键问题、作出取舍、有限核验决定性事实、调度和验收；固定的低价 Worker 模型负责工作区调查、修改、测试和审查。
 
 ## 架构
 
@@ -86,6 +86,17 @@ Set-ExecutionPolicy -Scope Process Bypass
 ### ZCode
 
 ZCode 原生 Plugin、可移植 marketplace、四个 Worker、Hook 与主 Agent 指令位于 `zcode/`。安装和 Smoke 步骤见 [docs/ZCODE.md](docs/ZCODE.md)，也可执行 `python3 scripts/install_zcode.py --project /path/to/project` 生成当前用户自己的安装路径并安全合并项目 `AGENTS.md`。ZCode 仍以第一方 Agent 为主入口，因此由插件 `PreToolUse` 守卫执行 Leader 的执行边界：当工作区 `AGENTS.md` 含有 Leader/Worker 块时，主 Agent 的 `Edit`、`Write`、`Bash` 与 MCP 调用会被拒绝并附带委派指引，效果等同 VS Code 版的结构化 Leader 工具白名单；Worker 边界则由各自工具白名单与简报纪律保证。
+
+### Codex
+
+Codex 项目级版本位于 `codex/`，四个自定义 Worker 全部固定为 `gpt-5.6-luna`。先预览，再安装：
+
+```bash
+python3 scripts/install_codex.py --project /path/to/project --dry-run
+python3 scripts/install_codex.py --project /path/to/project
+```
+
+安装器会保留项目已有的 `AGENTS.md` 与 `.codex/config.toml` 配置。Analyzer、Reviewer 由 `read-only` 沙箱硬隔离；Implementer、Tester 使用 `workspace-write`，让测试命令可以写入正常缓存和产物，同时 Tester 仍由角色协议禁止修改源码或修复失败。Codex 当前没有能可靠区分主线程与子线程的项目 Hook 字段，因此 Codex 版 Leader 的“不可编辑/不可执行”是协议约束，不宣称为结构化隔离。完整安装与 Smoke 验收见 [docs/CODEX.md](docs/CODEX.md)。
 
 ## 原生限制
 

@@ -1,6 +1,6 @@
 {
   "name": "leader-worker",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "Cost-first Leader orchestration with bounded Analyzer, Implementer, Tester, and Reviewer subagents",
   "license": "MIT",
   "keywords": [

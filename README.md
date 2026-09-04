@@ -1,6 +1,6 @@
 # VS Code Copilot Leader Agents
 
-A Leader/Worker setup for VS Code Copilot Chat and ZCode that spends a high-capability Leader model on user intent, key decisions, narrow fact checks, orchestration, and acceptance while a configured low-cost model performs workspace investigation, implementation, testing, and review.
+A Leader/Worker setup for VS Code Copilot Chat, ZCode, and Codex that spends a high-capability Leader model on user intent, key decisions, narrow fact checks, orchestration, and acceptance while a configured low-cost model performs workspace investigation, implementation, testing, and review.
 
 中文文档见 [README.zh-CN.md](README.zh-CN.md)。
 
@@ -84,6 +84,17 @@ If GCMP is already installed, run `./install.sh --update-extension` before insta
 ### ZCode
 
 The native ZCode plugin, portable marketplace, Worker definitions, Hook, and primary-Agent instructions live under `zcode/`. Follow [docs/ZCODE.md](docs/ZCODE.md), or stage it locally with `python3 scripts/install_zcode.py --project /path/to/project`. ZCode keeps its first-party Agent as the main entry point, so the plugin enforces the Leader's execution boundary with its `PreToolUse` guard: once the workspace `AGENTS.md` carries the Leader/Worker block, the primary Agent's `Edit`, `Write`, `Bash`, and MCP calls are denied with delegation guidance, matching VS Code's structural Leader tool allowlist in effect. Worker boundaries come from each Worker's tool allowlist and brief discipline.
+
+### Codex
+
+The project-scoped Codex edition lives under `codex/` and fixes all four custom Workers to `gpt-5.6-luna`. Preview and install it with:
+
+```bash
+python3 scripts/install_codex.py --project /path/to/project --dry-run
+python3 scripts/install_codex.py --project /path/to/project
+```
+
+It merges project instructions and Codex agent settings without replacing unrelated configuration. Analyzer and Reviewer are structurally read-only; Implementer and Tester use workspace-write so tests may create normal artifacts, while Tester remains protocol-forbidden from source edits and repairs. Codex does not currently expose a project Hook discriminator that can block only the primary thread, so the Leader's no-edit/no-terminal boundary is protocol-enforced in this edition. Install details and required live checks are in [docs/CODEX.md](docs/CODEX.md).
 
 ## Native limitations
 

@@ -35,6 +35,13 @@ ZCODE_WORKER_TOOLS = {
     "reviewer": {"Read", "Grep", "Glob", "Bash"},
 }
 
+CODEX_WORKERS = {
+    "analyzer": "read-only",
+    "implementer": "workspace-write",
+    "tester": "workspace-write",
+    "reviewer": "read-only",
+}
+
 
 def frontmatter(path: Path) -> dict[str, object]:
     text = path.read_text(encoding="utf-8")
@@ -173,6 +180,56 @@ def validate_zcode(errors: list[str], source_version: str) -> None:
         ])
 
 
+def validate_codex(errors: list[str]) -> None:
+    root = REPO_ROOT / "codex"
+    try:
+        config_text = (root / "config.toml").read_text(encoding="utf-8")
+    except OSError as exc:
+        errors.append(f"Invalid Codex config: {exc}")
+        return
+    for line in [
+        "[agents]", 'enabled = true', 'default_subagent_model = "gpt-5.6-luna"',
+        'default_subagent_reasoning_effort = "high"', 'max_concurrent_threads_per_session = 4',
+    ]:
+        if line not in config_text:
+            errors.append(f"Codex [agents] defaults are missing: {line}")
+
+    for name, sandbox in CODEX_WORKERS.items():
+        path = root / "agents" / f"leader-{name}.toml"
+        try:
+            text = path.read_text(encoding="utf-8")
+        except OSError as exc:
+            errors.append(f"Invalid Codex {name} agent: {exc}")
+            continue
+        if f'name = "leader_{name}"' not in text:
+            errors.append(f"Codex {name} name is incorrect")
+        if 'model = "gpt-5.6-luna"' not in text or 'model_reasoning_effort = "high"' not in text:
+            errors.append(f"Codex {name} model configuration is incorrect")
+        if f'sandbox_mode = "{sandbox}"' not in text:
+            errors.append(f"Codex {name} sandbox is incorrect")
+        require_tokens(errors, f"Codex {name} contract", text, [
+            "GOAL", "BOUNDARIES", "DONE", "STOP_AND_REPORT", "NEEDS_LEADER",
+            "stateless invocation", "never spawn another subagent",
+        ])
+
+    leader = (root / "AGENTS.md").read_text(encoding="utf-8")
+    require_tokens(errors, "Codex Leader protocol", leader, [
+        "primary Codex agent is the Leader", "task-topology gate", "dependency-ordered stage waves",
+        "`GOAL`", "`BOUNDARIES`", "`DONE`", "`STOP_AND_REPORT`", "gpt-5.6-luna",
+        "protocol-enforced, not structurally enforced", "at most one targeted rework round",
+    ])
+    skill = (root / "skills/leader-worker-mode/SKILL.md").read_text(encoding="utf-8")
+    require_tokens(errors, "Codex leader-worker skill", skill, [
+        "every repository task", "leader_analyzer", "leader_implementer", "gpt-5.6-luna",
+        "protocol-enforced",
+    ])
+    installer = REPO_ROOT / "scripts/install_codex.py"
+    require_tokens(errors, "Codex installer", installer.read_text(encoding="utf-8"), [
+        "leader-worker-codex:start", "default_subagent_model", "Refusing to overwrite existing Codex settings",
+        ".agents", "leader-worker-mode",
+    ])
+
+
 def validate(installed: bool) -> list[str]:
     errors: list[str] = []
     worker_model: str | None = None
@@ -180,6 +237,7 @@ def validate(installed: bool) -> list[str]:
 
     if not installed:
         validate_zcode(errors, source_version)
+        validate_codex(errors)
 
     if installed:
         agents, skills, hooks, runtime = installed_paths()
