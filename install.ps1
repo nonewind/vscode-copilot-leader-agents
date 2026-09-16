@@ -1,5 +1,7 @@
 param(
     [string]$Model,
+    [ValidateSet("strict", "adaptive")]
+    [string]$Leader,
     [switch]$SkipExtension,
     [switch]$UpdateExtension,
     [switch]$DryRun
@@ -19,6 +21,7 @@ if (Get-Command py -ErrorAction SilentlyContinue) {
 
 $argsList = @("$ScriptDir\scripts\install.py")
 if ($Model) { $argsList += @("--model", $Model) }
+if ($Leader) { $argsList += @("--leader", $Leader) }
 if ($SkipExtension) { $argsList += "--skip-extension" }
 if ($UpdateExtension) { $argsList += "--update-extension" }
 if ($DryRun) { $argsList += "--dry-run" }

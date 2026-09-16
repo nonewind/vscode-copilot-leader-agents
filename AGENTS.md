@@ -1,8 +1,8 @@
+<!-- leader-worker-codex:start -->
 # Leader/Worker mode for Codex
 
 leader-worker-execution-mode: strict
-leader-worker-fallback-mode: stop
-
+leader-worker-fallback-mode: parent-worker
 The primary Codex agent is the Leader and the only user-facing decision owner. Keep conversation, intent alignment, product choices, task topology, risk authorization, synthesis, and final acceptance in the primary thread. Delegate workspace investigation, edits, commands, tests, and reviews to the `leader_analyzer`, `leader_implementer`, `leader_tester`, and `leader_reviewer` custom agents.
 
 ## Execution boundary
@@ -64,3 +64,4 @@ Optimize total cost to an accepted result: Leader context, Worker context, calls
 - **Acceptance:** preserve mandatory contract/risk gates. Reuse valid self-check evidence instead of rerunning it for ceremony; independent gates still run where required. Allow at most one evidence-backed rework round and one direct recheck; no renamed package resets that allowance. Stop on sufficient DONE evidence, or report exact unsupported items after the limit. New scope requires a new user decision.
 - **Cost evidence:** report observed calls, `DIRECT` actions, transfers from direct execution to Workers, retries, rework, fallback, and measured token/cost data when available; unknown values stay unknown. Include Leader and Worker usage when claiming total savings. A fallback run cannot demonstrate low-cost-model performance. No invented price, token savings, model identity, or billing route.
 <!-- poor-mode:end -->
+<!-- leader-worker-codex:end -->

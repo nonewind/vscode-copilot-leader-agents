@@ -9,12 +9,15 @@ import re
 import sys
 from pathlib import Path
 
+from sync_poor_mode import check as check_poor_mode
+
 REPO_ROOT = Path(__file__).resolve().parents[1]
 WORKERS = ["analyzer", "implementer", "tester", "reviewer"]
 DEFAULT_WORKER_MODEL = "GLM-5.3-Flash (CodingPlan) (gcmp.zhipu)"
 DEFAULT_WORKER_MODEL_SELECTOR_ID = "gcmp.zhipu:::glm-5.3-flash"
 SKILLS = ["leader-orchestration", "cost-control", "quality-gates"]
 LEADER_TOOLS = {"vscode/askQuestions", "vscode/memory", "agent", "read", "search", "web"}
+LEADER_ADAPTIVE_TOOLS = LEADER_TOOLS | {"edit", "execute"}
 WORKER_TOOLS = {
     "analyzer": {"read", "search"},
     "implementer": {"vscode", "execute", "read", "search", "edit"},
@@ -34,12 +37,28 @@ ZCODE_WORKER_TOOLS = {
     "tester": {"Read", "Grep", "Glob", "Bash"},
     "reviewer": {"Read", "Grep", "Glob", "Bash"},
 }
+ZCODE_WORKER_EFFORT = {
+    "analyzer": "high",
+    "implementer": "high",
+    "tester": "high",
+    "reviewer": "high",
+}
 
 CODEX_WORKERS = {
     "analyzer": "read-only",
     "implementer": "workspace-write",
     "tester": "workspace-write",
     "reviewer": "read-only",
+}
+CODEX_WORKER_EFFORT = {
+    "analyzer": "medium",
+    "implementer": "high",
+    "tester": "medium",
+    "reviewer": "high",
+}
+CODEX_LEGACY_DEFAULT_KEYS = {
+    "default_subagent_model",
+    "default_subagent_reasoning_effort",
 }
 
 
@@ -97,6 +116,18 @@ def inline_list(text: str, key: str) -> set[str]:
     return {item.strip().strip("'\"") for item in match.group(1).split(",") if item.strip()}
 
 
+def normalized_codex_agent(text: str) -> str:
+    """Compare base and fallback role bodies while ignoring routing metadata."""
+    ignored = {"name", "description", "model", "model_reasoning_effort"}
+    lines = []
+    for line in text.splitlines():
+        match = re.match(r"^([A-Za-z0-9_]+)\s*=", line)
+        if match and match.group(1) in ignored:
+            continue
+        lines.append(line)
+    return "\n".join(lines).strip()
+
+
 def validate_zcode(errors: list[str], source_version: str) -> None:
     root = REPO_ROOT / "zcode"
     plugin = root / "plugins/leader-worker"
@@ -113,7 +144,7 @@ def validate_zcode(errors: list[str], source_version: str) -> None:
     if manifest.get("name") != "leader-worker" or manifest.get("version") != source_version:
         errors.append("ZCode plugin name or version differs from repository VERSION")
     entries = marketplace.get("plugins", [])
-    if not isinstance(entries, list) or not entries or entries[0].get("source") != "./leader-worker":
+    if not isinstance(entries, list) or not entries or entries[0].get("source") != "./plugins/leader-worker":
         errors.append("ZCode marketplace does not publish the leader-worker plugin")
     elif entries[0].get("version") != source_version:
         errors.append("ZCode marketplace version differs from repository VERSION")
@@ -144,7 +175,7 @@ def validate_zcode(errors: list[str], source_version: str) -> None:
             "GOAL", "BOUNDARIES", "DONE", "STOP_AND_REPORT", "NEEDS_LEADER",
             "stateless invocation", "never invoke another subagent",
         ])
-        if "model: glm-5.3-flash" not in text or "thoughtLevel: high" not in text:
+        if "model: glm-5.3-flash" not in text or f"thoughtLevel: {ZCODE_WORKER_EFFORT[name]}" not in text:
             errors.append(f"ZCode {name} model or thought level is incorrect")
 
     agents_md = (root / "AGENTS.md").read_text(encoding="utf-8")
@@ -152,14 +183,15 @@ def validate_zcode(errors: list[str], source_version: str) -> None:
         "primary ZCode Agent is the Leader", "task-topology gate", "dependency-ordered stage waves",
         "`GOAL`", "`BOUNDARIES`", "`DONE`", "`STOP_AND_REPORT`", "Goal Mode",
         "PUBLIC_TYPESCRIPT_API", "BEHAVIOR_BOUNDARY", "at most one targeted rework round",
-        "structurally denies", "routing instruction", "one-line edit", "instead of reading",
+        "leader-worker-execution-mode: strict", "In `strict` mode", "In `adaptive` mode",
+        "routing instruction", "Sensitive-path edits", "deterministic rejection",
     ])
     skill_path = plugin / "skills/leader-worker-mode/SKILL.md"
     if not skill_path.exists():
         errors.append(f"Missing ZCode skill: {skill_path}")
     else:
         require_tokens(errors, "ZCode leader-worker skill", skill_path.read_text(encoding="utf-8"), [
-            "every repository task", "structurally denies", "Delegate by default", "one `GOAL`",
+            "every repository task", "strict mode", "adaptive mode", "one `GOAL`",
         ])
     hook_path = plugin / "hooks/hooks.json"
     guard_path = plugin / "hooks/guard.py"
@@ -175,8 +207,8 @@ def validate_zcode(errors: list[str], source_version: str) -> None:
         errors.append(f"Missing ZCode guard: {guard_path}")
     else:
         require_tokens(errors, "ZCode guard leader boundary", guard_path.read_text(encoding="utf-8"), [
-            "leader-worker-agents:start", "# Leader/Worker mode for ZCode",
-            "leader-implementer", "leader-tester", "leader-analyzer",
+            "leader-worker-agents:start", "leader-worker-agents:end", "MODE_PATTERN",
+            "leader-implementer", "leader-tester", "leader-analyzer", "path_text",
         ])
 
 
@@ -187,12 +219,12 @@ def validate_codex(errors: list[str]) -> None:
     except OSError as exc:
         errors.append(f"Invalid Codex config: {exc}")
         return
-    for line in [
-        "[agents]", 'enabled = true', 'default_subagent_model = "gpt-5.6-luna"',
-        'default_subagent_reasoning_effort = "high"', 'max_concurrent_threads_per_session = 4',
-    ]:
+    for line in ["[agents]", "enabled = true", "max_concurrent_threads_per_session = 4"]:
         if line not in config_text:
-            errors.append(f"Codex [agents] defaults are missing: {line}")
+            errors.append(f"Codex [agents] managed setting is missing: {line}")
+    for key in CODEX_LEGACY_DEFAULT_KEYS:
+        if re.search(rf"(?m)^\s*{re.escape(key)}\s*=", config_text):
+            errors.append(f"Codex source config must not set project-wide {key}")
 
     for name, sandbox in CODEX_WORKERS.items():
         path = root / "agents" / f"leader-{name}.toml"
@@ -203,7 +235,7 @@ def validate_codex(errors: list[str]) -> None:
             continue
         if f'name = "leader_{name}"' not in text:
             errors.append(f"Codex {name} name is incorrect")
-        if 'model = "gpt-5.6-luna"' not in text or 'model_reasoning_effort = "high"' not in text:
+        if 'model = "gpt-5.6-luna"' not in text or f'model_reasoning_effort = "{CODEX_WORKER_EFFORT[name]}"' not in text:
             errors.append(f"Codex {name} model configuration is incorrect")
         if f'sandbox_mode = "{sandbox}"' not in text:
             errors.append(f"Codex {name} sandbox is incorrect")
@@ -212,21 +244,38 @@ def validate_codex(errors: list[str]) -> None:
             "stateless invocation", "never spawn another subagent",
         ])
 
+        fallback = root / "agents" / f"leader-{name}-fallback.toml"
+        try:
+            fallback_text = fallback.read_text(encoding="utf-8")
+        except OSError as exc:
+            errors.append(f"Invalid Codex {name} fallback agent: {exc}")
+            continue
+        if f'name = "leader_{name}_fallback"' not in fallback_text:
+            errors.append(f"Codex {name} fallback name is incorrect")
+        if re.search(r"(?m)^\s*(?:model|model_reasoning_effort)\s*=", fallback_text):
+            errors.append(f"Codex {name} fallback must omit model and effort")
+        if f'sandbox_mode = "{sandbox}"' not in fallback_text:
+            errors.append(f"Codex {name} fallback sandbox is incorrect")
+        if normalized_codex_agent(text) != normalized_codex_agent(fallback_text):
+            errors.append(f"Codex {name} base and fallback role contracts differ")
+
     leader = (root / "AGENTS.md").read_text(encoding="utf-8")
     require_tokens(errors, "Codex Leader protocol", leader, [
         "primary Codex agent is the Leader", "task-topology gate", "dependency-ordered stage waves",
         "`GOAL`", "`BOUNDARIES`", "`DONE`", "`STOP_AND_REPORT`", "gpt-5.6-luna",
-        "protocol-enforced, not structurally enforced", "at most one targeted rework round",
+        "leader-worker-execution-mode: strict", "protocol-enforced, not structurally enforced",
+        "parent turn's live sandbox and approval overrides", "leader_analyzer_fallback",
+        "at most one targeted rework round", "deterministic rejection",
     ])
     skill = (root / "skills/leader-worker-mode/SKILL.md").read_text(encoding="utf-8")
     require_tokens(errors, "Codex leader-worker skill", skill, [
         "every repository task", "leader_analyzer", "leader_implementer", "gpt-5.6-luna",
-        "protocol-enforced",
+        "protocol-enforced", "`strict` mode", "`adaptive` mode", "live sandbox", "leader_*_fallback",
     ])
     installer = REPO_ROOT / "scripts/install_codex.py"
     require_tokens(errors, "Codex installer", installer.read_text(encoding="utf-8"), [
-        "leader-worker-codex:start", "default_subagent_model", "Refusing to overwrite existing Codex settings",
-        ".agents", "leader-worker-mode",
+        "leader-worker-codex:start", "--migrate-agent-defaults", "Parent-model fallback cannot inherit",
+        "atomic_write", "fallback_files", ".agents", "leader-worker-mode",
     ])
 
 
@@ -238,12 +287,20 @@ def validate(installed: bool) -> list[str]:
     if not installed:
         validate_zcode(errors, source_version)
         validate_codex(errors)
+        try:
+            errors.extend(check_poor_mode(REPO_ROOT))
+        except (OSError, ValueError) as exc:
+            errors.append(f"Invalid shared poor-mode contract: {exc}")
 
     if installed:
         agents, skills, hooks, runtime = installed_paths()
         state_path = runtime / "install-state.json"
+        state: dict[str, object] = {}
         try:
-            state = json.loads(state_path.read_text(encoding="utf-8"))
+            loaded_state = json.loads(state_path.read_text(encoding="utf-8"))
+            if not isinstance(loaded_state, dict):
+                raise ValueError("install state is not an object")
+            state = loaded_state
             value = state.get("worker_model")
             if not isinstance(value, str) or not value:
                 raise ValueError("worker_model is missing")
@@ -252,6 +309,10 @@ def validate(installed: bool) -> list[str]:
                 errors.append(f"Installed version {state.get('version')} differs from source {source_version}")
         except (OSError, ValueError, json.JSONDecodeError) as exc:
             errors.append(f"Invalid install state {state_path}: {exc}")
+        leader_mode = state.get("leader_mode")
+        if leader_mode not in {"strict", "adaptive"}:
+            errors.append(f"Invalid installed Leader mode: {leader_mode}")
+            leader_mode = "strict"
         agent_files = {
             "leader": agents / "leader.agent.md",
             **{name: agents / f"leader-{name}.agent.md" for name in WORKERS},
@@ -263,6 +324,22 @@ def validate(installed: bool) -> list[str]:
         }
         skills = REPO_ROOT / "src/skills"
         hooks = REPO_ROOT / "src/hooks"
+
+        adaptive_path = REPO_ROOT / "src/agents/leader-adaptive.agent.md"
+        try:
+            adaptive_fm = frontmatter(adaptive_path)
+            adaptive_text = adaptive_path.read_text(encoding="utf-8")
+        except Exception as exc:
+            errors.append(f"Invalid adaptive Leader: {exc}")
+        else:
+            if set(adaptive_fm.get("tools", [])) != LEADER_ADAPTIVE_TOOLS:
+                errors.append("Adaptive Leader tool set is incorrect")
+            if set(adaptive_fm.get("agents", [])) != {"Leader Analyzer", "Leader Implementer", "Leader Tester", "Leader Reviewer"}:
+                errors.append("Adaptive Leader subagent allowlist is incorrect")
+            require_tokens(errors, "Adaptive Leader policy", adaptive_text, [
+                "leader-worker-execution-mode: adaptive", "`DIRECT:`", "共享 adaptive 条件",
+                "移交 Implementer", "一次局部源文件修改", "一条窄诊断/验证命令",
+            ])
 
     for name, path in agent_files.items():
         if not path.exists():
@@ -277,14 +354,15 @@ def validate(installed: bool) -> list[str]:
         tools = set(fm.get("tools", []))
         text = path.read_text(encoding="utf-8")
         if name == "leader":
-            if tools != LEADER_TOOLS:
+            expected_tools = LEADER_ADAPTIVE_TOOLS if installed and leader_mode == "adaptive" else LEADER_TOOLS
+            if tools != expected_tools:
                 errors.append("Leader tool set is incorrect")
             expected_agents = {"Leader Analyzer", "Leader Implementer", "Leader Tester", "Leader Reviewer"}
             if set(fm.get("agents", [])) != expected_agents:
                 errors.append("Leader subagent allowlist is incorrect")
             if fm.get("user-invocable") is not True:
                 errors.append("Leader must be user-invocable")
-            require_tokens(errors, "Leader control policy", text, ["意图对齐", "`GOAL`", "`BOUNDARIES`", "`DONE`", "`STOP_AND_REPORT`", "NEEDS_LEADER", "一次直接、无状态的 Worker 调用", "不是 `goal` 命令", "没有 `todo` 工具", "`vscode/memory` 只在用户明确要求记住时", "禁止保存当前任务的 goal", "记忆不能触发调用", "`web` 只用于", "禁止登录、提交、外部写入", "不得代替 Analyzer 广泛扫描", worker_model or DEFAULT_WORKER_MODEL, "显式指定该模型", "低成本执行模型", "机械执行的任务包", "不得声称已设置 `max`", "不得向调用中编造 `reasoningEffort` 字段", "相关文件", "合理处理", "视情况而定", "全面检查", "PUBLIC_TYPESCRIPT_API", "BEHAVIOR_BOUNDARY", "触发项的 `NOT_VERIFIED` 是未满足的 `DONE`", "重试一次", "两次子模型调用均因模型错误失败", "不得自动发现第三方模型", "### 任务拓扑门", "单 Worker 快速通道", "两个及以上可独立验收", "阶段波次", "禁止把它们合并给同一个 Worker", "默认采用最大安全并行度", "多个 Implementer", "不需要用户额外提出并行要求", "预先声明"])
+            require_tokens(errors, "Leader control policy", text, ["意图对齐", "`GOAL`", "`BOUNDARIES`", "`DONE`", "`STOP_AND_REPORT`", "NEEDS_LEADER", "一次直接、无状态的 Worker 调用", "不是 `goal` 命令", "没有 `todo` 工具", "`vscode/memory` 只在用户明确要求记住时", "禁止保存当前任务的 goal", "记忆不能触发调用", "`web` 只用于", "禁止登录、提交、外部写入", "不得代替 Analyzer 广泛扫描", worker_model or DEFAULT_WORKER_MODEL, "显式指定该模型", "低成本执行模型", "机械执行的任务包", "不得声称已设置 `max`", "不得向调用中编造 `reasoningEffort` 字段", "相关文件", "合理处理", "视情况而定", "全面检查", "PUBLIC_TYPESCRIPT_API", "BEHAVIOR_BOUNDARY", "触发项的 `NOT_VERIFIED` 是未满足的 `DONE`", "重试一次", "确定性拒绝", "不得自动发现第三方模型", "### 任务拓扑门", "单 Worker 快速通道", "两个及以上可独立验收", "阶段波次", "禁止把它们合并给同一个 Worker", "默认采用最大安全并行度", "多个 Implementer", "不需要用户额外提出并行要求", "预先声明"])
             if "修改默认串行" in text:
                 errors.append("Leader control policy still defaults implementation to serial")
         else:
@@ -305,7 +383,8 @@ def validate(installed: bool) -> list[str]:
                 require_tokens(errors, "Reviewer contract-trigger policy", text, ["PUBLIC_TYPESCRIPT_API", "BEHAVIOR_BOUNDARY", "@ts-expect-error", "Contract-trigger review"])
 
         if installed and worker_model:
-            source = REPO_ROOT / "src/agents" / f"{name}.agent.md"
+            source_name = "leader-adaptive.agent.md" if name == "leader" and leader_mode == "adaptive" else f"{name}.agent.md"
+            source = REPO_ROOT / "src/agents" / source_name
             expected = source.read_text(encoding="utf-8").replace(DEFAULT_WORKER_MODEL, worker_model)
             if text != expected:
                 errors.append(f"Installed agent differs from template: {path}")

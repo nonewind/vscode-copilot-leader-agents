@@ -4,15 +4,15 @@
 
 | Component | Model | User visible | Tools | Responsibility |
 |---|---|---:|---|---|
-| Leader | Current chat model | Yes | `vscode/askQuestions`, `vscode/memory`, `agent`, `read`, `search`, `web` | Intent, key decisions, bounded memory/source/web checks, routing, synthesis, acceptance |
+| Leader | Current chat model | Yes | strict: `vscode/askQuestions`, `vscode/memory`, `agent`, `read`, `search`, `web`; adaptive also: `edit`, `execute` | Intent, key decisions, bounded checks, routing, synthesis, acceptance; one adaptive direct action only when all gates hold |
 | Analyzer | Worker model | No | `read`, `search` | Focused read-only facts |
 | Implementer | Worker model | No | `vscode`, `execute`, `read`, `search`, `edit` | Minimum sufficient scoped changes and direct self-checks |
 | Tester | Worker model | No | `read`, `search`, `execute` | Targeted acceptance validation |
 | Reviewer | Worker model | No | `read`, `search`, `execute` | Independent diff, boundary, correctness, and risk review |
 
-Leader cannot edit, execute commands, perform general VS Code operations, use a browser, call GitHub, or write to external services. Its read-only tools are reserved for a small fact that materially changes a decision and cannot be trusted from current Worker evidence. `web` is the only network tool and is restricted to a bounded public fact or authoritative document unavailable from the workspace; it never logs in, writes externally, or sends workspace content or credentials. Memory retains only stable preferences or reusable project facts the user explicitly asks to remember; task goals, plans, todos, Worker progress, checkpoints, open items, and continuation instructions are forbidden. Routine repository exploration stays on the low-cost model.
+The default strict Leader cannot edit or execute commands. The optional adaptive Leader adds `edit` and `execute`, but may use them only after `DIRECT:` for one exact reversible source edit or one non-writing local diagnostic/validation command satisfying every shared-contract exclusion. Scope growth ends direct execution and transfers Writer ownership. Neither variant can perform general VS Code operations, use a browser, call GitHub, or write to external services. Read-only tools remain bounded; routine repository exploration stays on the low-cost model.
 
-The installed Leader configuration owns model routing. Its default Worker model is `GLM-5.3-Flash (CodingPlan) (gcmp.zhipu)`, backed by GCMP catalog ID `glm-5.3-flash` and selector route `gcmp.zhipu:::glm-5.3-flash`. Worker manifests are model-neutral. The current VS Code subagent interface has no independent per-subagent reasoning-effort call field, so the design neither sends a fabricated `reasoningEffort` field nor claims a `max` setting even if a model catalog exposes reasoning levels. An invocation error or `MODEL_UNAVAILABLE` receives one stateless retry with the same brief and checkpoint. If both attempts fail for that model reason, Leader invokes the same Worker role without a Worker-model override so it inherits the current Leader model for the remaining in-scope task. `FAIL`, `BLOCKED`, `NEEDS_LEADER`, and inadequate task results do not trigger a model retry; no third model is discovered.
+The installed Leader configuration owns model routing. Its default Worker model is `GLM-5.3-Flash (CodingPlan) (gcmp.zhipu)`, backed by GCMP catalog ID `glm-5.3-flash` and selector route `gcmp.zhipu:::glm-5.3-flash`. Worker manifests are model-neutral. Dispatch failures are classified before retrying; VS Code permits one disclosed same-role call without a model override after eligible failure. `FAIL`, `BLOCKED`, `NEEDS_LEADER`, and inadequate output never trigger model fallback. ZCode pins its Worker model and stops after eligible exhausted failure in 0.8.0. Codex pins four base roles and optionally installs paired fallback roles that omit both model and effort; those may be used only when the independent fallback mode is explicitly `parent-worker`. Actual inheritance remains a live-test claim.
 
 Workers are hidden, have no `agent` tool, and cannot create nested subagents. Implementer is the only role with edit capability. Hooks remain defense in depth for known dangerous operations.
 
@@ -23,12 +23,13 @@ REQUEST
   -> LEADER_INTENT_ALIGNMENT
       -> RESULT_CHANGING_AMBIGUITY -> USER_QUESTION -> INTENT_ALIGNMENT
       -> TASK_TOPOLOGY_GATE
+          -> ADAPTIVE_ALL_GATES -> DIRECT_ONCE -> ACCEPT || TRANSFER_WRITER_OWNERSHIP
           -> SIMPLE_TASK -> ONE_WORKER_PACKAGE
           -> COMPOUND_TASK -> DEPENDENCY_ORDERED_WAVES
               -> WAVE_1 -> PACKAGE_A || PACKAGE_B || PACKAGE_C -> WAVE_BARRIER
               -> WAVE_2 -> PACKAGE_D || PACKAGE_E -> WAVE_BARRIER
           -> EACH_PACKAGE -> WORKER_BRIEF
-          -> WORKER_MODEL_ERROR -> SAME_WORKER_RETRY_ONCE -> MAIN_MODEL_SAME_WORKER_ROLE
+          -> WORKER_MODEL_ERROR -> TRANSIENT_RETRY_ONCE || DETERMINISTIC_REJECTION -> MAIN_MODEL_SAME_WORKER_ROLE
           -> ROUTINE -> IMPLEMENTER_PACKAGE(S) -> NARROW_SELF_CHECK -> LEADER_ACCEPTANCE
           -> HIGH_RISK -> USER_CONFIRMATION -> IMPLEMENTER_PACKAGE(S) -> TESTER || REVIEWER -> LEADER_ACCEPTANCE
           -> NEEDS_LEADER
@@ -71,3 +72,7 @@ Verification climbs only on evidence: direct diff/behavior, target check, module
 ## Authorization boundary
 
 High-risk confirmation covers only the stated plan and does not authorize later expansion. Native VS Code cannot bind natural-language approval to a durable capability token, so semantic scope remains protocol-enforced even though tool availability and Hook decisions are structural controls.
+
+## Shared execution contract
+
+Maintain cross-platform cost, direct-execution eligibility, context, writer ownership, retry, and acceptance rules in `src/protocols/poor-mode.md`. `scripts/sync_poor_mode.py --write` embeds identical blocks in four installable Leader policies: strict and adaptive VS Code, Codex, and ZCode. Repository validation rejects drift. See [the execution guide](POOR_MODE.md) for routing examples and measurement boundaries.

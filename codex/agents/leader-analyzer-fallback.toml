@@ -1,7 +1,5 @@
-name = "leader_analyzer"
-description = "Read-only Worker for one bounded codebase fact or call-chain investigation before implementation."
-model = "gpt-5.6-luna"
-model_reasoning_effort = "medium"
+name = "leader_analyzer_fallback"
+description = "Parent-model fallback for the same bounded read-only Analyzer role after an eligible model dispatch failure."
 sandbox_mode = "read-only"
 developer_instructions = """
 Answer only one concrete fact question from the Leader. Require a definite observable GOAL, exact read-only BOUNDARIES, itemized DONE evidence, and STOP_AND_REPORT conditions. If the package contains independent deliverables, asks for edits, or leaves scope open, return NEEDS_LEADER.

@@ -1,5 +1,7 @@
 # VS Code Copilot Leader Agents
 
+Current repository baseline: [VERSION](VERSION) (unreleased). See [release changes](CHANGELOG.md) and the [poor-mode execution guide](docs/POOR_MODE.md). Source validation does not update installed clients.
+
 A Leader/Worker setup for VS Code Copilot Chat, ZCode, and Codex that spends a high-capability Leader model on user intent, key decisions, narrow fact checks, orchestration, and acceptance while a configured low-cost model performs workspace investigation, implementation, testing, and review.
 
 中文文档见 [README.zh-CN.md](README.zh-CN.md)。
@@ -7,16 +9,16 @@ A Leader/Worker setup for VS Code Copilot Chat, ZCode, and Codex that spends a h
 ## Architecture
 
 ```text
-User <-> Leader (current model; agent, bounded read/search/web)
+User <-> Leader (current model; strict by default, optional adaptive fast path)
            |-- Analyzer     (worker model; read-only investigation)
            |-- Implementer  (worker model; scoped edits and self-checks)
            |-- Tester       (worker model; targeted commands)
            `-- Reviewer     (worker model; diff and risk review)
 ```
 
-Leader has no edit, execute, general VS Code operation, browser, GitHub, todo, or external-write tools. Routine workspace work stays on workers. Leader may use `read` and `search` only for a small decisive source fact when worker evidence conflicts or is insufficient. Its single `web` tool is limited to a bounded public fact or authoritative document unavailable from the workspace; it cannot log in, write externally, or transmit workspace content or credentials. `vscode/askQuestions` is reserved for user decisions that change the result, boundary, or authority. `vscode/memory` may retain only stable preferences or reusable project facts the user explicitly asks to remember; it never stores task state or triggers work.
+The default strict Leader has no edit or execute tools. The optional adaptive Leader adds only `edit` and `execute`, and may use them once only when every shared-contract condition holds: exact known location, reversible local scope, no risk/contract category, no further discovery, and no conflicting Writer ownership. It declares `DIRECT:` first and transfers ownership to Implementer if scope grows. Both variants exclude general VS Code operations, browser, GitHub, todo, and external writes; routine work stays on Workers.
 
-Leader fixes the default submodel to `GLM-5.3-Flash (CodingPlan) (gcmp.zhipu)` and explicitly specifies it on each initial Analyzer, Implementer, Tester, or Reviewer invocation. Its GCMP catalog model ID is `glm-5.3-flash`; the VS Code selector route is `gcmp.zhipu:::glm-5.3-flash`. On an invocation error or `MODEL_UNAVAILABLE`, it retries that same stateless Worker once with the original brief and checkpoint. If both requests fail for that model reason, Leader invokes the same Worker role without a Worker-model override so it inherits the current Leader model and completes the remaining in-scope task. Worker manifests remain model-neutral. `FAIL`, `BLOCKED`, `NEEDS_LEADER`, and weak results are handled as task evidence, not model retries; no third model is discovered.
+Leader fixes the default submodel to `GLM-5.3-Flash (CodingPlan) (gcmp.zhipu)` and explicitly specifies it on each initial Analyzer, Implementer, Tester, or Reviewer invocation. Its GCMP catalog model ID is `glm-5.3-flash`; the VS Code selector route is `gcmp.zhipu:::glm-5.3-flash`. Worker dispatch failures are classified before retrying. A transient failure (timeout, no response, rate limiting, or `MODEL_UNAVAILABLE` without an unsupported-configuration statement) retries that same stateless Worker once with the original brief and checkpoint. A deterministic rejection — the error explicitly states the requested model or effort is not supported — skips that retry, because an identical call would fail identically, and goes straight to the same-role invocation without a Worker-model override. After a deterministic rejection or two transient failures, that no-override invocation inherits the current Leader model and completes the remaining in-scope task, and Leader discloses the fallback before dispatch. Worker manifests remain model-neutral. `FAIL`, `BLOCKED`, `NEEDS_LEADER`, and weak results are handled as task evidence, not model retries; no third model is discovered.
 
 The current VS Code subagent interface does not expose an independent per-subagent reasoning-effort call parameter. Even when the GCMP catalog advertises model reasoning levels, this project does not claim or fabricate a `max` setting. Complex briefs name the exact analysis dimensions, decision rules, and required evidence instead; that is prompt guidance, not a platform reasoning-effort configuration.
 
@@ -77,28 +79,42 @@ Explicit replacement only when selected by the user:
 ./install.sh --model "exact-user-selected-model-id"
 ```
 
+Install the opt-in adaptive Leader instead of the strict default:
+
+```bash
+./install.sh --leader adaptive
+```
+
+```powershell
+.\install.ps1 -Leader adaptive
+```
+
+Reinstalling without `--leader` preserves a valid previous selection; a fresh or legacy install defaults to strict.
+
 Existing managed files and modified VS Code settings are backed up. Upgrading to 0.4.0 removes the previously managed Arbiter agent and retired workflow skills after backing them up. Reload VS Code and select **Leader** after installation. GCMP credentials remain user-managed and are not read or stored.
 
 If GCMP is already installed, run `./install.sh --update-extension` before installation when the selector does not list the default model.
 
 ### ZCode
 
-The native ZCode plugin, portable marketplace, Worker definitions, Hook, and primary-Agent instructions live under `zcode/`. Follow [docs/ZCODE.md](docs/ZCODE.md), or stage it locally with `python3 scripts/install_zcode.py --project /path/to/project`. ZCode keeps its first-party Agent as the main entry point, so the plugin enforces the Leader's execution boundary with its `PreToolUse` guard: once the workspace `AGENTS.md` carries the Leader/Worker block, the primary Agent's `Edit`, `Write`, `Bash`, and MCP calls are denied with delegation guidance, matching VS Code's structural Leader tool allowlist in effect. Worker boundaries come from each Worker's tool allowlist and brief discipline.
+The native ZCode plugin, marketplace, Workers, Hook, and instructions live under `zcode/`. Follow [docs/ZCODE.md](docs/ZCODE.md), or run `python3 scripts/install_zcode.py --project /path/to/project`. Strict mode denies primary edit/command/MCP calls; `--mode adaptive` keeps MCP denied and turns otherwise eligible direct edits/commands into per-call approval requests after stronger safety rules. ZCode 0.8.0 does not provide model fallback. Sensitive-path confirmation also applies without an active Leader block by deliberate design.
 
 ### Codex
 
-The project-scoped Codex edition lives under `codex/` and fixes all four custom Workers to `gpt-5.6-luna`. Preview and install it with:
+The project-scoped Codex edition lives under `codex/`. Four base Workers use `gpt-5.6-luna` with tiered effort; four optional fallback roles omit model and effort so they can inherit the parent. Preview and install it with:
 
 ```bash
 python3 scripts/install_codex.py --project /path/to/project --dry-run
 python3 scripts/install_codex.py --project /path/to/project
+python3 scripts/install_codex.py --project /path/to/project --mode adaptive
+python3 scripts/install_codex.py --project /path/to/project --fallback parent-worker
 ```
 
-It merges project instructions and Codex agent settings without replacing unrelated configuration. Analyzer and Reviewer are structurally read-only; Implementer and Tester use workspace-write so tests may create normal artifacts, while Tester remains protocol-forbidden from source edits and repairs. Codex does not currently expose a project Hook discriminator that can block only the primary thread, so the Leader's no-edit/no-terminal boundary is protocol-enforced in this edition. Install details and required live checks are in [docs/CODEX.md](docs/CODEX.md).
+Fresh installs default to strict execution and stop-on-failure. Exact legacy project-wide model/effort defaults require the explicit `--migrate-agent-defaults` migration; custom values are preserved and block parent fallback. Sandbox declarations are defaults that parent live overrides can narrow or broaden, not structural isolation. Install details and bidirectional sandbox/fallback smoke checks are in [docs/CODEX.md](docs/CODEX.md).
 
 ## Native limitations
 
-Tool manifests structurally separate Leader decisions from Worker implementation, and Hooks block or confirm known dangerous operations. Intent alignment, semantic boundaries, risk classification, and exact adherence remain prompt protocols; native VS Code cannot bind chat approval to a durable capability token or guarantee provider-side model/credit behavior. See [docs/NATIVE_LIMITATIONS.md](docs/NATIVE_LIMITATIONS.md).
+Strict tool manifests separate Leader decisions from Worker implementation; adaptive mode intentionally makes its one-action limit protocol-enforced. Hooks block or confirm known dangerous operations, but live Hook reach, semantic adherence, model inheritance, and provider billing require runtime evidence. See [docs/NATIVE_LIMITATIONS.md](docs/NATIVE_LIMITATIONS.md).
 
 ## Validate
 

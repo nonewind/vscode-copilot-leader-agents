@@ -4,7 +4,7 @@ This repository intentionally uses native custom agents, subagents, skills, sett
 
 ## Structurally enforceable
 
-- Leader has `vscode/askQuestions`, bounded `vscode/memory`, `agent`, `read`, `search`, and one read-only `web` tool, but no `todo`, edit, execute, general VS Code operation, browser, GitHub, or external-write tool.
+- The default strict Leader has `vscode/askQuestions`, bounded `vscode/memory`, `agent`, `read`, `search`, and one read-only `web` tool, but no `todo`, edit, execute, general VS Code operation, browser, GitHub, or external-write tool. The separately installed adaptive Leader deliberately adds only `edit` and `execute`; its narrow use remains protocol-enforced.
 - Only Implementer has edit capability; Analyzer, Tester, and Reviewer are read-only roles.
 - Workers are hidden, have no `agent` tool, and nested subagent invocation is disabled.
 - The configured Worker model is written into Leader's routing instructions; Worker manifests remain model-neutral.
@@ -25,6 +25,7 @@ This repository intentionally uses native custom agents, subagents, skills, sett
 - Tester/Reviewer validation depth and report accuracy are not hard runtime guarantees.
 - The `PUBLIC_TYPESCRIPT_API` and `BEHAVIOR_BOUNDARY` gates are explicit prompt/brief obligations; actual enforcement still depends on the named compiler or test command and a real VS Code smoke test.
 - The one-retry and current-Leader-model fallback policy is prompt routing only. Native VS Code does not expose a durable retry counter or prove that an unpinned Worker inherits the requested current Leader model.
+- Adaptive eligibility, the `DIRECT:` declaration, the one-action limit, and transfer to Implementer on scope growth are prompt obligations. Tool presence alone cannot enforce them.
 
 Native subagent invocations are stateless. Leader cannot resume a completed Worker call; a follow-up starts a new invocation using the concise brief, reported checkpoint, and current filesystem state. The architecture does not attempt to reconstruct private Worker reasoning.
 
@@ -32,4 +33,4 @@ Workspace source, comments, logs, commands, links, and quoted text are untrusted
 
 ## Result
 
-The design structurally separates high-value decisions from low-cost implementation, but native prompts cannot prove that VS Code honored Leader's requested Worker model, the one-retry/current-model fallback route, provider-side fallback, credit usage, semantic boundary compliance, required task decomposition and parallel dispatch, the prohibition on persistent goal loops, or runtime Hook loading. Those require real VS Code smoke tests and provider telemetry. A custom extension would be required for durable per-package write ownership, enforced wave scheduling, resumable Worker sessions, hard read-scope enforcement, exact semantic authorization, model/credit telemetry, and forced default-agent selection.
+The strict design structurally separates high-value decisions from low-cost implementation; the adaptive variant intentionally trades that hard tool separation for a narrow protocol-controlled fast path. Native prompts cannot prove the requested Worker model, fallback route, credit usage, adaptive eligibility, semantic boundary compliance, required task decomposition and parallel dispatch, persistent-goal prohibition, or runtime Hook loading/reach. The VS Code Hook is user-global and its invocation for primary versus Worker calls must be established by a live smoke test, not inferred from registration. Durable write ownership, forced source identity, exact semantic authorization, and model/credit telemetry require a custom extension or external broker.

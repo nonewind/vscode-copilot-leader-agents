@@ -31,6 +31,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--model", help=f"Explicit replacement Worker model (default: {DEFAULT_WORKER_MODEL})")
     parser.add_argument("--skip-extension", action="store_true", help="Do not install GCMP")
     parser.add_argument("--update-extension", action="store_true", help="Force-update GCMP so its current model catalog is available")
+    parser.add_argument("--leader", choices=("strict", "adaptive"), help="Leader execution mode; preserves an existing valid mode when omitted")
     parser.add_argument("--dry-run", action="store_true")
     return parser.parse_args()
 
@@ -248,6 +249,7 @@ def main() -> int:
     hook_dir = copilot / "hooks"
     runtime_root = copilot / "vscode-copilot-leader-agents"
     previous_state_path = runtime_root / "install-state.json"
+    previous_state: dict[str, Any] = {}
     legacy_worker_model: str | None = None
     if previous_state_path.exists():
         try:
@@ -256,11 +258,19 @@ def main() -> int:
             legacy_worker_model = value if isinstance(value, str) else None
         except (OSError, json.JSONDecodeError):
             pass
+    previous_leader_mode = previous_state.get("leader_mode")
+    if previous_leader_mode not in {"strict", "adaptive"}:
+        previous_leader_mode = None
+    leader_mode = args.leader or previous_leader_mode or "strict"
+    print(
+        "Leader mode: "
+        f"detected={previous_leader_mode or 'none'} requested={args.leader or 'none'} final={leader_mode}"
+    )
     timestamp = dt.datetime.now().strftime("%Y%m%d-%H%M%S")
     backup_root = runtime_root / "backups" / timestamp
 
     agent_map = {
-        "leader.agent.md": "leader.agent.md",
+        ("leader-adaptive.agent.md" if leader_mode == "adaptive" else "leader.agent.md"): "leader.agent.md",
         "analyzer.agent.md": "leader-analyzer.agent.md",
         "implementer.agent.md": "leader-implementer.agent.md",
         "tester.agent.md": "leader-tester.agent.md",
@@ -301,6 +311,7 @@ def main() -> int:
         "version": (REPO_ROOT / "VERSION").read_text(encoding="utf-8").strip(),
         "installed_at": dt.datetime.now(dt.timezone.utc).isoformat(),
         "worker_model": model,
+        "leader_mode": leader_mode,
         "extension": EXTENSION_ID,
         "settings_files": [str(p) for p in settings_files],
         "backup_root": str(backup_root),

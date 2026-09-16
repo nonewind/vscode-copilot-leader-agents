@@ -1,0 +1,11 @@
+{
+  "version": "0.8.0",
+  "execution_mode": "strict",
+  "fallback_mode": "parent-worker",
+  "fallback_files": {
+    "leader-analyzer-fallback.toml": "143255e15cd0134ac848d828cc6926c4026c6ee4ea8c90ff6940559ab04ad45a",
+    "leader-implementer-fallback.toml": "64a7467ca691e5d7cef72ebff336c3b97742dc3032df60c874fd96b5982515bd",
+    "leader-tester-fallback.toml": "bc3d65165841b8dd638bdd4e22b7be03990746b8768071e80353b568983d7f8d",
+    "leader-reviewer-fallback.toml": "2ad1757a8388d3a0a5177780f9244ad4a9c9aea60448fc966d4d665908c93f4e"
+  }
+}

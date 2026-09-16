@@ -17,12 +17,28 @@ def emit(decision: str, reason: str) -> None:
     }, ensure_ascii=False))
 
 
-def flatten(value: Any) -> str:
-    if isinstance(value, dict):
-        return " ".join(f"{k} {flatten(v)}" for k, v in value.items())
-    if isinstance(value, list):
-        return " ".join(flatten(v) for v in value)
-    return str(value)
+def path_text(value: Any) -> str:
+    """Return only structured path-like fields; never inspect edit bodies."""
+    if not isinstance(value, dict):
+        return ""
+    parts: list[str] = []
+    for key, item in value.items():
+        normalized = str(key).lower()
+        if normalized in {"path", "file", "file_path", "target", "target_path", "uri", "notebook_path"} or normalized.endswith("_path"):
+            if isinstance(item, list):
+                parts.extend(str(entry) for entry in item)
+            else:
+                parts.append(str(item))
+        elif isinstance(item, dict):
+            nested = path_text(item)
+            if nested:
+                parts.append(nested)
+        elif isinstance(item, list):
+            for entry in item:
+                nested = path_text(entry)
+                if nested:
+                    parts.append(nested)
+    return " ".join(parts)
 
 
 def matches(patterns: list[str], text: str) -> str | None:
@@ -127,8 +143,8 @@ def main() -> int:
 
     tool_name = str(data.get("tool_name", "")).lower()
     tool_input = data.get("tool_input", {})
-    text = flatten(tool_input)
-    combined = f"{tool_name} {text}"
+    command = str(tool_input.get("command", "")) if isinstance(tool_input, dict) else ""
+    paths = path_text(tool_input)
 
     if github_decision(tool_name) == "ask":
         emit("ask", "GitHub write or unknown action requires explicit user confirmation.")
@@ -138,13 +154,12 @@ def main() -> int:
         r"\bgit\s+(commit|push|pull|merge|rebase|reset|revert|cherry-pick|switch|checkout|clean|stash|tag)\b",
         r"\bgit\s+branch\s+(-d|-D|-m|-M|--delete|--move)\b",
     ]
-    hit = matches(hard_deny, combined)
+    hit = matches(hard_deny, command)
     if hit:
         emit("deny", "Destructive or Git-writing operation blocked by the Leader security policy.")
         return 0
 
     delete_tools = ["deletefile", "delete_file", "removefile", "remove_file"]
-    command = str(tool_input.get("command", "")) if isinstance(tool_input, dict) else ""
     delete_decision = terminal_delete_decision(command)
     if delete_decision == "deny":
         emit("deny", "Deletion is allowed only as one standalone command with literal, non-expanded targets.")
@@ -161,7 +176,7 @@ def main() -> int:
         r"\b(alembic\s+upgrade|flask\s+db\s+upgrade|manage\.py\s+migrate|prisma\s+migrate|sequelize[^\n]*db:migrate|knex[^\n]*migrate|rails\s+db:migrate)\b",
         r"\b(terraform\s+(apply|destroy)|kubectl\s+(apply|delete|patch|replace)|helm\s+(install|upgrade|uninstall)|docker\s+(push|rm|rmi)|aws\s+[^\n]*(deploy|update|delete)|gcloud\s+[^\n]*(deploy|delete)|az\s+[^\n]*(create|update|delete))\b",
     ]
-    hit = matches(approval_required, combined)
+    hit = matches(approval_required, command)
     if hit:
         emit("ask", "Environment, dependency, migration, deployment, or external mutation requires explicit user confirmation.")
         return 0
@@ -172,7 +187,7 @@ def main() -> int:
         r"(^|[\\/])(?:package-lock\.json|pnpm-lock\.yaml|yarn\.lock|poetry\.lock|uv\.lock)$",
         r"(^|[\\/])(?:Dockerfile|docker-compose[^\\/]*\.ya?ml)$",
         r"(^|[\\/])(?:\.github[\\/]workflows|k8s|kubernetes|terraform|migrations?)([\\/]|$)",
-    ], combined)
+    ], paths)
     edit_like = any(x in tool_name for x in ["edit", "replace", "create_file", "write"])
     if sensitive_path and edit_like:
         emit("ask", "Sensitive configuration, lockfile, infrastructure, migration, or credential-related edit requires explicit confirmation.")
